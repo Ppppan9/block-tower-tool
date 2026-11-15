@@ -95,6 +95,7 @@ export function crateAsset(color) {
       g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(x + sw - 1.5, 13, 3, 74);
       g.globalAlpha = 0.75; drawSym(g, P.sym, x + sw / 2, 50, 7.6, { fill: mix(P.main, '#8a5a2a', 0.25), lw: 2.6 }); g.globalAlpha = 1;
     }
+    g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(255,245,225,0.10)'; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'source-over';
   }); });
 }
 export const CRATE_SLOT = (i) => ({ x: 9 + (CRATE.w - 18) / 6 + i * (CRATE.w - 18) / 3, y: 13 + 37 }); // 槽位中心（素材内坐标，相对左上）
@@ -118,6 +119,7 @@ export function trayAsset(n = 5) {
       g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(x + 1.5, 12, sw - 9, 5);
     }
     g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(3, 3, w - 6, 2.5);
+    g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(70,35,0,0.12)'; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'source-over';
   }));
 }
 export const TRAY_SLOT = (i, n = 5) => { const sw = (TRAY.w - 14) / n; return { x: 8 + i * sw + sw / 2, y: 9 + (TRAY.h - 58) / 2 + 1, w: sw - 8, h: TRAY.h - 62 }; };

@@ -61,7 +61,7 @@ export function createScene(glCanvas) {
   const texCache = new Map(), matCache = new Map(); let geoCache = new Map();
 
   API.applyLights = S => {
-    amb.intensity = S.ambient; sun.intensity = S.lightIntensity * 1.6;
+    renderer.toneMapping = THREE.LinearToneMapping; renderer.toneMappingExposure = S.exposure || 1; amb.intensity = S.ambient; sun.intensity = S.lightIntensity * 1.6;
     const a = S.lightAngle * Math.PI / 180; sun.position.set(Math.sin(a) * 9, 14, Math.cos(a) * 9 + 3); sun.target.position.set(0, 2, 0);
     sun.shadow.radius = S.shadowSoft; ground.material.opacity = S.shadowStrength * 0.8;
     sun.shadow.needsUpdate = true;

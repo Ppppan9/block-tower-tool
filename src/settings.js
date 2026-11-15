@@ -15,8 +15,8 @@ export const DEFAULTS = {
   col_red: '#ef4a55', col_yellow: '#f3dc4a', col_blue: '#4a8fe2', col_green: '#5fd45a', col_orange: '#f59a3a', col_purple: '#7c4fd6',
   highlightColor: '#ffe14d', ghostAlpha: 0.7,
   // 树桩 / 场景
-  stumpR: 2.5, stumpTop: '#f0d6b4', stumpRing: '#d9b283', stumpBark: '#e0a071', stumpBarkDark: '#ae8260', stumpCracks: true, mushroom: true, sprout: true,
-  bgTop: '#4fb7ef', bgMid: '#9dd7f6', bgBottom: '#e4f5fd', bgGlow: 0.25, shadowStrength: 0.38, shadowSoft: 3, lightIntensity: 0.85, ambient: 1.1, lightAngle: 40,
+  stumpR: 2.5, stumpTop: '#fff1cb', stumpRing: '#f5c994', stumpBark: '#fdb47f', stumpBarkDark: '#c4926c', stumpCracks: true, mushroom: true, sprout: true,
+  bgTop: '#4fb7ef', bgMid: '#9dd7f6', bgBottom: '#e4f5fd', bgGlow: 0.25, shadowStrength: 0.38, shadowSoft: 3, lightIntensity: 0.8, ambient: 2.3, exposure: 1.28, lightAngle: 40,
   // 镜头
   camElev: 24, camFov: 22, fitMargin: 0.045, fitTall: 4.9, levelZoom: '1,1,1,1,1', stumpWidths: '0.9,0.9,0.8,1.05,0.62', blockScales: '1.0,1.0,0.95,0.7,0.85', blockScaleDefault: 0.75, towerY: 0.72, zoomMin: 0.6, zoomMax: 2.2, rotateSpeed: 0.8, idleSpin: 0, startYaw: 22, zoomIntro: true, introZoom: 1.55, introMs: 1100,
   // 界面
@@ -111,7 +111,7 @@ export const SCHEMA = [
     B('stumpCracks', '树桩裂纹线', { kind: 'mesh' }), B('mushroom', '小蘑菇', { kind: 'mesh' }), B('sprout', '嫩芽', { kind: 'mesh' }),
     C('bgTop', '天空颜色（顶）'), C('bgMid', '天空颜色（中）'), C('bgBottom', '天空颜色（底）'), R('bgGlow', '底部光晕', 0, 0.8, 0.01),
     R('shadowStrength', '投影强度', 0, 1, 0.01, { kind: 'mesh' }), R('shadowSoft', '投影柔和度', 0, 8, 0.5, { kind: 'mesh' }),
-    R('lightIntensity', '主光强度', 0.3, 2.2, 0.05, { kind: 'mesh' }), R('ambient', '环境光', 0.2, 1.5, 0.05, { kind: 'mesh' }), R('lightAngle', '主光方位角', -180, 180, 5, { kind: 'mesh' }),
+    R('lightIntensity', '主光强度', 0.3, 2.2, 0.05, { kind: 'mesh' }), R('ambient', '环境光', 0.2, 3, 0.05, { kind: 'mesh' }), R('exposure', '整体曝光', 0.6, 1.8, 0.01, { kind: 'mesh' }), R('lightAngle', '主光方位角', -180, 180, 5, { kind: 'mesh' }),
   ]},
   { group: '镜头 / 操作', items: [
     R('camElev', '俯视角度(度)', 10, 70, 1), R('camFov', '视场角', 10, 50, 1), R('fitMargin', '树桩最大宽度边距', 0, 0.3, 0.01), R('fitTall', '高塔取景：树桩宽度×塔高 ≤ 此值', 2, 9, 0.1), R('towerY', '塔底在画面中的纵向位置', 0.5, 0.9, 0.01),
