@@ -190,10 +190,11 @@ export function createScene(glCanvas) {
     const mat = new CANNON.Material('wood'); world.defaultContactMaterial = new CANNON.ContactMaterial(mat, mat, { friction: 0.1, restitution: S.restitution }); fric = S.friction;
     const stump = new CANNON.Body({ mass: 0, material: mat }); stump.addShape(new CANNON.Cylinder(S.stumpR - 0.05, S.stumpR - 0.05, 1.1, 28)); stump.position.set(0, -0.55, 0); world.addBody(stump);
     const gnd = new CANNON.Body({ mass: 0, material: mat }); gnd.addShape(new CANNON.Plane()); gnd.quaternion.setFromEuler(-Math.PI / 2, 0, 0); gnd.position.set(0, -1.1, 0); world.addBody(gnd);
+    { const WR = S.stumpR + (S.collapseWall ?? 1.9), nW = 16; for (let i = 0; i < nW; i++) { const ang = i / nW * Math.PI * 2, wall = new CANNON.Body({ mass: 0, material: mat }); wall.addShape(new CANNON.Box(new CANNON.Vec3(0.3, 4, WR * Math.PI / nW * 1.08))); wall.position.set(Math.cos(ang) * (WR + 0.3), 2.5, Math.sin(ang) * (WR + 0.3)); wall.quaternion.setFromEuler(0, -ang, 0); world.addBody(wall); } }
     const rnd = mulberry(seed * 31 + 7); bodies = new Map(); cTime = 0; acc = 0; burst = { done: false, r: mulberry(seed * 77 + 5) };
     // 倒塌强度：塔越高越猛烈（参考视频 L2 轻微扭塌、L3 塌成一堆、L5 整塔炸开）
     let yMin = 1e9, yMax = -1e9; for (const id of ids) { const b = API.blocks[id]; yMin = Math.min(yMin, b.y); yMax = Math.max(yMax, b.y + b.hgt / 2); }
-    const floors = Math.max(1, (yMax - yMin) / (API.blocks[ids[0]] ? API.blocks[ids[0]].hgt : 0.8)), viol = Math.max(2.1, Math.min(2.6, 0.7 + (ids.length - 6) * 0.09)) * (opt.violence ?? 1);
+    const floors = Math.max(1, (yMax - yMin) / (API.blocks[ids[0]] ? API.blocks[ids[0]].hgt : 0.8)), viol = Math.max(2.1, Math.min(2.5, 0.7 + (ids.length - 6) * 0.09)) * (opt.violence ?? 1);
     const lr = Math.hypot(...(opt.pulledXZ || [0, 0])) || 0, ang = lr > 0.05 ? Math.atan2(opt.pulledXZ[1], opt.pulledXZ[0]) : rnd() * 6.28, lx = Math.cos(ang), lz = Math.sin(ang);
     const py = opt.pulledY ?? -1e9, pxz = opt.pulledXZ || [0, 0], k = S.collapseKick * viol, twist = (rnd() < 0.5 ? -1 : 1);
     for (const id of ids) {
@@ -205,7 +206,7 @@ export function createScene(glCanvas) {
       const rx = m.position.x, rz = m.position.z, rl = Math.hypot(rx, rz) || 1, hh = (0.85 + 0.15 * Math.pow(h, 0.8)) * above;
       // 倾倒方向（被拔块一侧）+ 向外推 + 绕轴扭转 + 随机扰动：越高越猛
       const ca = Math.atan2(rz, rx) + (rl < 0.35 ? rnd() * 6.28 : 0), cx = rl < 0.35 ? Math.cos(ca) : rx / rl, cz = rl < 0.35 ? Math.sin(ca) : rz / rl;
-      const lean = k * 5.4 * Math.pow(hh, 1.3), rad = k * 1.6 * hh, rnd2 = () => (rnd() - 0.5) * 2;
+      const lean = k * 8.5 * (0.35 + 0.65 * h) * above, rad = k * 1.0 * hh, rnd2 = () => (rnd() - 0.5) * 2;
       body.velocity.set(lx * lean + cx * rad + rnd2() * k * 1.3 * hh - twist * rz * 0.5 * k * hh, (rnd() - 0.1) * k * 3.2 * hh, lz * lean + cz * rad + rnd2() * k * 1.0 * hh + twist * rx * 0.5 * k * hh);
       body.angularVelocity.set(rnd2() * k * 5 * hh + lz * k * 2.4 * hh, rnd2() * k * 3 * hh + twist * k * 1.2 * hh, rnd2() * k * 5 * hh - lx * k * 2.4 * hh);
       world.addBody(body); bodies.set(id, body);
@@ -217,7 +218,7 @@ export function createScene(glCanvas) {
   API.stepPhysics = function (dt) {
     if (!world) return;
     acc += Math.min(dt, 0.25); let n = 0; const h = 1 / 120;
-    if (!burst.done && cTime >= 0.6 && API.collapse && API.collapse.violence > 1.5) { burst.done = true; const B = Math.min(1, (API.collapse.violence - 1.5) / 1.1) * 5.5 + 3.2; for (const body of bodies.values()) { const r = Math.hypot(body.position.x, body.position.z) || 1; body.velocity.x += body.position.x / r * B * (0.5 + burst.r()) + (burst.r() - 0.5) * B; body.velocity.z += body.position.z / r * B * (0.5 + burst.r()) + (burst.r() - 0.5) * B; body.velocity.y += burst.r() * B * 0.9; body.angularVelocity.x += (burst.r() - 0.5) * B * 3; body.angularVelocity.z += (burst.r() - 0.5) * B * 3; body.wakeUp(); } }
+    if (!burst.done && cTime >= 0.6 && API.collapse && API.collapse.violence > 1.5) { burst.done = true; const B = (Math.min(1, (API.collapse.violence - 1.5) / 1.1) * 5.5 + 3.2) * 0.6; for (const body of bodies.values()) { const r = Math.hypot(body.position.x, body.position.z) || 1; body.velocity.x += body.position.x / r * B * (0.5 + burst.r()) + (burst.r() - 0.5) * B; body.velocity.z += body.position.z / r * B * (0.5 + burst.r()) + (burst.r() - 0.5) * B; body.velocity.y += burst.r() * B * 0.9; body.angularVelocity.x += (burst.r() - 0.5) * B * 3; body.angularVelocity.z += (burst.r() - 0.5) * B * 3; body.wakeUp(); } }
     while (acc >= h && n < 40) { if (cTime > 1.3) world.defaultContactMaterial.friction = fric; world.step(h); acc -= h; n++; cTime += h; }
     if (acc >= h) acc = 0;
     for (const [id, body] of bodies) { const m = API.meshes[id]; m.position.set(body.position.x, body.position.y, body.position.z); m.quaternion.set(body.quaternion.x, body.quaternion.y, body.quaternion.z, body.quaternion.w); }

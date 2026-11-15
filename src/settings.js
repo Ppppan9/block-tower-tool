@@ -25,7 +25,7 @@ export const DEFAULTS = {
   // 动画
   pullSlide: 0.95, pullMs: 250, flyMs: 380, pullSfxDelay: 0.15, crateSfxLead: 125, flyArc: 0.2, flyScale: 1.0, crateFullMs: 520, popScale: 1.18, rewindMs: 850, collapseGraceMs: 2300, popupMs: 1400, shakeOnFall: 6,
   // 物理（倒塌动画）
-  gravity: 24, friction: 0.55, restitution: 0.05, collapseKick: 0.7, collapseZoom: 0.52, linDamp: 0.05, angDamp: 0.1,
+  gravity: 24, friction: 0.55, restitution: 0.05, collapseKick: 0.7, collapseWall: 3.2, collapseZoom: 0.52, linDamp: 0.05, angDamp: 0.1,
   // 粒子
   confettiCount: 70, debrisCount: 14, dustPuffs: 4, particleSize: 1, particleGravity: 1, confettiOnCrate: true, confettiOnWin: true,
   // 音效
@@ -132,7 +132,7 @@ export const SCHEMA = [
     R('collapseGraceMs', '倒塌多久后弹失败面板(ms)', 500, 6000, 100), R('popupMs', '赞美词/飘字停留(ms)', 300, 3000, 50), R('shakeOnFall', '倒塌时屏幕震动(px)', 0, 30, 1),
   ]},
   { group: '物理（倒塌动画 / cannon-es）', items: [
-    R('gravity', '重力', 5, 60, 1), R('friction', '摩擦', 0.1, 1, 0.01), R('restitution', '弹性', 0, 0.6, 0.01), R('collapseKick', '倒塌初始扰动', 0, 2, 0.05), R('collapseZoom', '倒塌时镜头拉远系数(<1 拉远)', 0.4, 1, 0.01), R('linDamp', '线性阻尼', 0, 0.5, 0.01), R('angDamp', '角阻尼', 0, 0.8, 0.01),
+    R('gravity', '重力', 5, 60, 1), R('friction', '摩擦', 0.1, 1, 0.01), R('restitution', '弹性', 0, 0.6, 0.01), R('collapseWall', '倒塌围栏（树桩外多远，积木不会飞出）', 0.6, 5, 0.1), R('collapseKick', '倒塌初始扰动', 0, 2, 0.05), R('collapseZoom', '倒塌时镜头拉远系数(<1 拉远)', 0.4, 1, 0.01), R('linDamp', '线性阻尼', 0, 0.5, 0.01), R('angDamp', '角阻尼', 0, 0.8, 0.01),
   ]},
   { group: '粒子', items: [
     R('confettiCount', '彩带数量', 0, 200, 1), R('debrisCount', '拔出碎屑数量', 0, 60, 1), R('dustPuffs', '灰尘团数量', 0, 12, 1), R('particleSize', '粒子大小倍数', 0.3, 3, 0.05), R('particleGravity', '粒子重力倍数', 0.2, 3, 0.05),
