@@ -39,7 +39,7 @@ await page.evaluate(() => { __app.setSetting('trayCap', 1); });
 await page.waitForTimeout(500); await newGame(3);
 info = await page.evaluate(() => { const A = __app, out = []; for (const b of A.LV.blocks) if (A.ST.present[b.id] && b.color === 'green' && A.core.pullOutcome(A.LV, A.ST, b.id, A.S.stabMargin).ok) out.push(b.id); return out; });
 const info2 = await page.evaluate(() => { const A = __app; return { cap: A.S.trayCap, vis: A.ST.crateQ.slice(0, A.S.visibleCrates).map(c => c.color) }; });
-if (info.length >= 1) { await tap(info[0]); await page.waitForTimeout(1500); }
+if (info.length >= 1) { await tap(info[0]); await page.waitForFunction(() => __app.G.panel === "tray", null, { timeout: 8000 }).catch(() => {}); }
 r = await page.evaluate(() => ({ over: __app.G.over, panel: __app.G.panel }));
 check(r.over === 'trayfull' && r.panel === 'tray', `托盘满且无匹配 → 失败面板 (${JSON.stringify(r)} cap=${info2.cap} crates=${info2.vis})`);
 await page.evaluate(() => { __app.doUndo(); }); await page.waitForTimeout(600);
@@ -88,6 +88,31 @@ for (let n = 1; n <= 5; n++) {
   await page.waitForTimeout(1200);
   const e = await page.evaluate(() => ({ vq: __app.G.view.vq.length, live: [...__app.G.view.crates.values()].filter(v => !v.leaving).length, q: __app.ST.crateQ.length, won: __app.G.cleared }));
   check(bad === 0 && e.vq === 0 && e.live === 0 && e.q === 0 && e.won, `L${n} 木箱补位：每步需求=剩余块、无多余/过期木箱（最多同屏 ${maxVis}）；清空后队列为空、不再补新箱 ${JSON.stringify(e)} bad=${bad}`);
+}
+// 8. 整塔倒塌 + 撤销精确还原（L3 / L5）
+await page.evaluate(() => { __app.setSetting('trayCap', 5); __app.setSetting('collapseGraceMs', 6000); });
+for (const n of [3, 5]) {
+  await newGame(n);
+  const getCrit = () => page.evaluate(() => { const A = __app, c = []; for (const b of A.LV.blocks) if (A.ST.present[b.id] && !A.core.pullOutcome(A.LV, A.ST, b.id, A.S.stabMargin).ok) c.push([b.id, b.y]); c.sort((a, b) => a[1] - b[1]); return c; });
+  const want = n === 3 ? 8 : 10;
+  for (let i = 0; i < 40; i++) { const st = await page.evaluate(() => __app.ST.cleared); const c = await getCrit(); if (st >= want && c.length) break; p = await plan(); await tap(p[0]); await idle(); }
+  const crit = await getCrit(), pick = crit[0];
+  const pre = await page.evaluate(() => ({ present: __app.ST.present.slice(), tray: __app.ST.tray.slice(), moves: __app.ST.moves }));
+  const pickInfo = await page.evaluate(id => { const b = __app.LV.blocks[id]; return { y: b.y, wid: b.wid }; }, pick[0]);
+  await tap(pick[0]);
+  await page.waitForFunction(() => { const c = __app.SC.collapse; if (c && ((c.t > 2.6 && __app.SC.collapseSettled()) || c.t > 6)) { window.__ts = c.t; return true; } return false; }, null, { timeout: 60000, polling: 100 });
+  const tSettle = await page.evaluate(() => window.__ts);
+  const r = await page.evaluate(({ present, y0, w }) => { const A = __app; let tot = 0, moved = 0, bad = 0;
+    for (const b of A.LV.blocks) { if (!present[b.id] || b.y < y0 - 0.01 || b.id === A.G.ghostId) continue; tot++; const m = A.SC.meshes[b.id]; const d = Math.hypot(m.position.x - b.x, m.position.y - b.y, m.position.z - b.z); if (!isFinite(d) || Math.abs(m.position.y) > 40) bad++; if (d > w) moved++; }
+    return { tot, moved, bad, settled: A.SC.collapseSettled(), over: A.G.over, colK: A.G.colK }; }, { present: pre.present, y0: pickInfo.y - 0.9, w: pickInfo.wid });
+  check(r.over === 'fell' && r.tot > 3 && r.moved / r.tot >= 0.5 && r.bad === 0 && r.settled && tSettle <= 6, `L${n} 拔承重块 → 整塔倒塌：${r.moved}/${r.tot} 块位移>1 块宽，在 ${tSettle.toFixed(1)}s(物理时间)内全部静止(≤6s)，无飞出 (${JSON.stringify(r)})`);
+  check(r.colK < 0.95, `L${n} 倒塌时镜头拉远 (colK=${(+r.colK).toFixed(2)})`);
+  await page.waitForFunction(() => __app.G.panel === 'fail', null, { timeout: 15000 });
+  await page.evaluate(() => { __app.doUndo(); }); await page.waitForFunction(() => !__app.G.rewinding && !__app.SC.collapse, null, { timeout: 15000 }); await page.waitForTimeout(400);
+  const u = await page.evaluate(({ present }) => { const A = __app; let worst = 0, vis = 0;
+    for (const b of A.LV.blocks) { const m = A.SC.meshes[b.id]; if (!A.ST.present[b.id]) continue; const q = new A.THREE.Quaternion().setFromEuler(new A.THREE.Euler(0, b.yaw, 0)); const dq = 1 - Math.abs(q.dot(m.quaternion)); worst = Math.max(worst, Math.hypot(m.position.x - b.x, m.position.y - b.y, m.position.z - b.z), dq * 10); if (m.visible) vis++; }
+    return { worst, vis, present: A.ST.present.filter(x => x).length, over: A.G.over, panel: A.G.panel }; }, { present: pre.present });
+  check(u.worst < 1e-3 && u.vis === u.present && !u.over && !u.panel && u.present === pre.present.filter(x => x).length, `L${n} 撤销：所有方块位置/姿态精确还原（最大偏差 ${u.worst.toExponential(1)}），回到倒塌前 ${JSON.stringify(u)}`);
 }
 check(errors.length === 0, 'no console errors ' + errors.slice(0, 3).join('|'));
 console.log(`rules: ${pass} passed, ${fail} failed`);

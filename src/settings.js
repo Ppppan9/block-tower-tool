@@ -18,7 +18,7 @@ export const DEFAULTS = {
   stumpR: 2.5, stumpTop: '#f0d6b4', stumpRing: '#d9b283', stumpBark: '#e0a071', stumpBarkDark: '#ae8260', stumpCracks: true, mushroom: true, sprout: true,
   bgTop: '#4fb7ef', bgMid: '#9dd7f6', bgBottom: '#e4f5fd', bgGlow: 0.25, shadowStrength: 0.38, shadowSoft: 3, lightIntensity: 0.85, ambient: 1.1, lightAngle: 40,
   // 镜头
-  camElev: 24, camFov: 22, fitMargin: 0.045, fitTall: 4.9, levelZoom: '1,1,1,1,1', stumpWidths: '0.9,0.9,0.8,1.05,0.62', blockScales: '1.3,1.0,1.3,0.7,1.2', blockScaleDefault: 0.75, towerY: 0.72, zoomMin: 0.6, zoomMax: 2.2, rotateSpeed: 0.8, idleSpin: 0, startYaw: 22, zoomIntro: true, introZoom: 1.55, introMs: 1100,
+  camElev: 24, camFov: 22, fitMargin: 0.045, fitTall: 4.9, levelZoom: '1,1,1,1,1', stumpWidths: '0.9,0.9,0.8,1.05,0.62', blockScales: '1.0,1.0,0.95,0.7,0.85', blockScaleDefault: 0.75, towerY: 0.72, zoomMin: 0.6, zoomMax: 2.2, rotateSpeed: 0.8, idleSpin: 0, startYaw: 22, zoomIntro: true, introZoom: 1.55, introMs: 1100,
   // 界面
   hudColor: '#4c2a10', barColor: '#5ad34a', gearColor: '#f6a02c', crateScale4: 0.78, crateSlideMs: 380, tipMs: 3200, hudShow: true, showTray: true, showBoosters: true,
   winTitle: 'Level Complete!', winButton: 'Next Level', failTitle: 'Tower Fell!', failText: 'Take back the last pull. Free this time!', failButton: 'Play On - Free', trayTitle: 'Tray Full!', trayText: 'No room left on the tray.',
