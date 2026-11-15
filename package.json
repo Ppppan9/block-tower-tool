@@ -12,6 +12,7 @@
     "test:exports": "node test/exports-test.mjs",
     "test:h5": "node test/h5-export.mjs",
     "test:cursor": "node test/cursor-test.mjs",
+    "test:builder": "node test/builder-test.mjs",
     "test:all": "node test/logic-test.mjs && node test/rules-test.mjs && node test/run-test.mjs && node test/exports-test.mjs && node test/h5-export.mjs && node test/cursor-test.mjs",
     "compare": "node test/compare.mjs"
   },

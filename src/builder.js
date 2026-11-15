@@ -137,7 +137,7 @@ export function createBuilder(app) {
   }
   function loop() { if (!modal.classList.contains('open')) { raf = 0; return; } if (SC) SC.renderer.render(SC.scene, SC.camera); raf = requestAnimationFrame(loop); }
   // ---- 构件 ----
-  const swatch = (c, cls, onclick) => h('button', { class: 'bt-sw ' + (cls || ''), style: `background:${colHex(c)}`, title: colName(c), onclick });
+  const swatch = (c, cls, onclick) => h('button', { class: 'bt-sw ' + (cls || ''), style: `background:${colHex(c)}`, title: colName(c), 'data-c': c, onclick });
   const palette = (sel, onpick, mini) => h('div', { class: 'bt-pal' }, COLOR_KEYS.map(c => swatch(c, (mini ? 'mini ' : '') + (sel === c ? 'sel' : ''), () => onpick(c))));
   const btn = (label, onclick, cls = '', attrs = {}) => h('button', { class: 'bt-btn ' + cls, onclick, ...attrs }, label);
   const tabs = [['tower', '🏗 积木塔'], ['crates', '📦 木箱'], ['params', '⚙ 参数'], ['library', '📁 关卡库']];
@@ -308,7 +308,7 @@ export function createBuilder(app) {
   }
   let inited = false;
   function open(opts = {}) {
-    if (!inited) { inited = true; if (!opts.def) { try { def = templateFromLevel(app.S, 1); def.name = '我的关卡'; } catch (e) { } } }
+    if (!inited) { inited = true; if (!opts.def) { try { def = templateFromLevel(app.S, 2); def.name = '我的关卡'; } catch (e) { } } }
     if (!paneEl) build();
     if (opts.def) { def = clone(opts.def); editId = opts.def.id || null; hist = []; fut = []; }
     modal.classList.add('open'); renderAll(); updatePreview(); if (!raf) raf = requestAnimationFrame(loop); clearTimeout(solveTimer); solveTimer = setTimeout(runSolve, 300);
