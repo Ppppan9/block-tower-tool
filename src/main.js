@@ -673,7 +673,7 @@ function frameBody() {
   if (G) {
     if (SC.collapse) {
       SC.stepPhysics(dt);
-      const ck = clamp((now - (G.collapseT0 || now)) / 700, 0, 1); G.colK = lerp(1, lerp(Math.min(1, S.collapseZoom + 0.3), S.collapseZoom, clamp((SC.collapse.violence - 1.8) / 0.8, 0, 1)), easeOut(ck));
+      const ck = clamp((now - (G.collapseT0 || now)) / 700, 0, 1); G.colK = lerp(1, S.collapseZoom, easeOut(ck));
       if (G.ghostId >= 0) SC.setGhostAlpha && SC.setGhostAlpha(G.ghostId, S.ghostAlpha * (1 - clamp((now - G.collapseT0) / 900, 0, 1)));
     } else if (G.colK && G.colK !== 1) G.colK += (1 - G.colK) * Math.min(1, dt * 5);
     if (S.idleSpin && !UI.ptrs.size && !G.over && !AUTO.running) { SC.setYaw(SC.yaw + S.idleSpin * Math.PI / 180 * dt); }

@@ -25,7 +25,7 @@ export const DEFAULTS = {
   // 动画
   pullSlide: 0.95, pullMs: 250, flyMs: 380, pullSfxDelay: 0.15, crateSfxLead: 125, flyArc: 0.2, flyScale: 1.0, crateFullMs: 520, popScale: 1.18, rewindMs: 850, collapseGraceMs: 2300, popupMs: 1400, shakeOnFall: 6,
   // 物理（倒塌动画）
-  gravity: 24, friction: 0.55, restitution: 0.05, collapseKick: 0.7, collapseWall: 3.2, collapseZoom: 0.52, linDamp: 0.05, angDamp: 0.1,
+  gravity: 24, friction: 0.55, restitution: 0.05, collapseKick: 0.7, collapseWall: 3.2, collapseZoom: 0.46, collapseBias: 0.45, linDamp: 0.05, angDamp: 0.1,
   // 粒子
   confettiCount: 70, debrisCount: 14, dustPuffs: 4, particleSize: 1, particleGravity: 1, confettiOnCrate: true, confettiOnWin: true,
   // 音效

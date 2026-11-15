@@ -206,8 +206,8 @@ export function createScene(glCanvas) {
       const rx = m.position.x, rz = m.position.z, rl = Math.hypot(rx, rz) || 1, hh = (0.85 + 0.15 * Math.pow(h, 0.8)) * above;
       // 倾倒方向（被拔块一侧）+ 向外推 + 绕轴扭转 + 随机扰动：越高越猛
       const ca = Math.atan2(rz, rx) + (rl < 0.35 ? rnd() * 6.28 : 0), cx = rl < 0.35 ? Math.cos(ca) : rx / rl, cz = rl < 0.35 ? Math.sin(ca) : rz / rl;
-      const lean = k * 8.5 * (0.35 + 0.65 * h) * above, rad = k * 1.0 * hh, rnd2 = () => (rnd() - 0.5) * 2;
-      body.velocity.set(lx * lean + cx * rad + rnd2() * k * 1.3 * hh - twist * rz * 0.5 * k * hh, (rnd() - 0.1) * k * 3.2 * hh, lz * lean + cz * rad + rnd2() * k * 1.0 * hh + twist * rx * 0.5 * k * hh);
+      const lean = k * 9.0 * (0.35 + 0.65 * h) * above, rad = k * 2.2 * hh, bias = S.collapseBias ?? 0.3, ra = rnd() * 6.283, lx2 = lx * bias + (cx * 0.5 + Math.cos(ra) * 0.8) * (1 - bias), lz2 = lz * bias + (cz * 0.5 + Math.sin(ra) * 0.8) * (1 - bias), rnd2 = () => (rnd() - 0.5) * 2;
+      body.velocity.set(lx2 * lean + cx * rad + rnd2() * k * 1.3 * hh - twist * rz * 0.5 * k * hh, (rnd() - 0.1) * k * 3.2 * hh, lz2 * lean + cz * rad + rnd2() * k * 1.0 * hh + twist * rx * 0.5 * k * hh);
       body.angularVelocity.set(rnd2() * k * 5 * hh + lz * k * 2.4 * hh, rnd2() * k * 3 * hh + twist * k * 1.2 * hh, rnd2() * k * 5 * hh - lx * k * 2.4 * hh);
       world.addBody(body); bodies.set(id, body);
     }
