@@ -39,7 +39,7 @@ export function woodEndCanvas(key, S) {
 function stumpTopCanvas(S) {
   const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d'), rnd = mulberry(7);
   const gr = g.createRadialGradient(256, 256, 20, 256, 256, 256); gr.addColorStop(0, shade(S.stumpTop, 0.12)); gr.addColorStop(0.8, S.stumpTop); gr.addColorStop(1, S.stumpRing); g.fillStyle = gr; g.fillRect(0, 0, 512, 512);
-  g.lineWidth = 2.5; for (let r = 24; r < 250; r += 14 + rnd() * 10) { g.beginPath(); for (let a = 0; a <= 64; a++) { const t = a / 64 * Math.PI * 2, rr2 = r * (1 + 0.04 * Math.sin(t * 3 + r) + 0.02 * Math.sin(t * 7 + r * 2)); g.lineTo(256 + Math.cos(t) * rr2, 256 + Math.sin(t) * rr2); } g.closePath(); g.strokeStyle = `rgba(${150 + rnd() * 30},${100 + rnd() * 30},60,${0.16 + rnd() * 0.14})`; g.stroke(); }
+  g.lineWidth = 2.5; for (let r = 24; r < 250; r += 14 + rnd() * 10) { g.beginPath(); for (let a = 0; a <= 64; a++) { const t = a / 64 * Math.PI * 2, rr2 = r * (1 + 0.04 * Math.sin(t * 3 + r) + 0.02 * Math.sin(t * 7 + r * 2)); g.lineTo(256 + Math.cos(t) * rr2, 256 + Math.sin(t) * rr2); } g.closePath(); g.strokeStyle = `rgba(${150 + rnd() * 30},${100 + rnd() * 30},60,${0.26 + rnd() * 0.16})`; g.stroke(); }
   if (S.stumpCracks) { g.strokeStyle = 'rgba(90,60,40,.55)'; g.lineWidth = 2; for (const a of [0.12, 1.75]) { g.beginPath(); g.moveTo(256 - Math.cos(a) * 250, 256 - Math.sin(a) * 250); g.lineTo(256 + Math.cos(a) * 250, 256 + Math.sin(a) * 250); g.stroke(); } }
   return c;
 }
