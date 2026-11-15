@@ -1,0 +1,26 @@
+{
+  "name": "block-tower-tool",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "积木塔 · 核玩工具（单文件离线版）",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node test/run-test.mjs",
+    "test:logic": "node test/logic-test.mjs",
+    "test:rules": "node test/rules-test.mjs",
+    "test:exports": "node test/exports-test.mjs",
+    "test:h5": "node test/h5-export.mjs",
+    "test:cursor": "node test/cursor-test.mjs",
+    "test:all": "node test/logic-test.mjs && node test/rules-test.mjs && node test/run-test.mjs && node test/exports-test.mjs && node test/h5-export.mjs && node test/cursor-test.mjs",
+    "compare": "node test/compare.mjs"
+  },
+  "devDependencies": {
+    "cannon-es": "^0.20.0",
+    "esbuild": "^0.25.0",
+    "gltf-validator": "^2.0.0-dev.3.10",
+    "playwright-core": "^1.48.0",
+    "three": "0.160.0",
+    "@fontsource/baloo-2": "^5.1.0"
+  }
+}

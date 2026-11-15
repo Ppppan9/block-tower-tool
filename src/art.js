@@ -1,0 +1,312 @@
+// 积木塔 · 2D 素材（木箱 / 托盘 / 积木图标 / 顶栏 / 按钮 / 弹窗…）。全部程序绘制，按 key 缓存；AE 导出直接取同一份素材。
+import { PALETTE } from './core.js';
+import { FONT } from './fonts.js';
+export const AS = 2; // 素材超采样
+const cache = new Map();
+export function clearArt() { cache.clear(); }
+export function hexRgb(h) { const n = parseInt(h.replace('#', ''), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+export function rgbHex(r, g, b) { return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join(''); }
+export function shade(h, k) { const [r, g, b] = hexRgb(h); return k >= 0 ? rgbHex(r + (255 - r) * k, g + (255 - g) * k, b + (255 - b) * k) : rgbHex(r * (1 + k), g * (1 + k), b * (1 + k)); }
+export function mix(a, b, t) { const A = hexRgb(a), B = hexRgb(b); return rgbHex(A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t); }
+export function rr(c, x, y, w, h, r) { r = Math.min(r, w / 2, h / 2); c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+
+// 颜色表（可被设置 / 主题覆盖）
+let PAL = {};
+export function setPalette(S) {
+  PAL = {};
+  for (const k of Object.keys(PALETTE)) {
+    const base = PALETTE[k], main = S['col_' + k] || base.main;
+    PAL[k] = { ...base, main, light: shade(main, 0.3), dark: shade(main, -0.28), sc: shade(main, -0.55), sym: base.sym };
+  }
+  clearArt();
+}
+export const pal = k => PAL[k] || PALETTE[k];
+setPalette({});
+
+export function mk(w, h, fn, ox = w / 2, oy = h / 2) {
+  const c = document.createElement('canvas'); c.width = Math.ceil(w * AS); c.height = Math.ceil(h * AS);
+  const g = c.getContext('2d'); g.scale(AS, AS); fn(g, w, h);
+  return { canvas: c, w, h, ox, oy };
+}
+function memo(key, fn) { let a = cache.get(key); if (!a) { a = fn(); a.key = key; cache.set(key, a); } return a; }
+
+// ---- 符号 ----
+export function drawSym(g, sym, cx, cy, r, o = {}) {
+  const fill = o.fill || '#fff', stroke = o.stroke || null, lw = o.lw || r * 0.28;
+  g.save(); g.translate(cx, cy); g.fillStyle = fill; g.strokeStyle = stroke || fill; g.lineWidth = lw; g.lineJoin = 'round'; g.lineCap = 'round';
+  g.beginPath();
+  if (sym === 'dot') { g.arc(0, 0, r, 0, 7); g.fill(); }
+  else if (sym === 'ring') { g.arc(0, 0, r * 0.82, 0, 7); g.stroke(); }
+  else if (sym === 'diamond') { g.moveTo(0, -r * 1.15); g.lineTo(r * 0.8, 0); g.lineTo(0, r * 1.15); g.lineTo(-r * 0.8, 0); g.closePath(); g.fill(); }
+  else if (sym === 'square') { rr(g, -r * 0.85, -r * 0.85, r * 1.7, r * 1.7, r * 0.22); g.fill(); }
+  else if (sym === 'plus') { const t = r * 0.38; g.moveTo(-t, -r); g.lineTo(t, -r); g.lineTo(t, -t); g.lineTo(r, -t); g.lineTo(r, t); g.lineTo(t, t); g.lineTo(t, r); g.lineTo(-t, r); g.lineTo(-t, t); g.lineTo(-r, t); g.lineTo(-r, -t); g.lineTo(-t, -t); g.closePath(); g.fill(); }
+  else if (sym === 'star') { for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rad = i % 2 ? r * 0.46 : r * 1.12; g.lineTo(Math.cos(a) * rad, Math.sin(a) * rad); } g.closePath(); g.fill(); }
+  g.restore();
+}
+
+// ---- 积木图标（箱内 / 托盘内的“方块”：圆角矩形 + 白色符号） ----
+export function tileAsset(color) {
+  return memo('tile|' + color, () => { const P = pal(color); return mk(46, 70, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, P.light); gr.addColorStop(0.18, P.main); gr.addColorStop(1, P.dark);
+    rr(g, 1, 1, w - 2, h - 2, 8); g.fillStyle = gr; g.fill(); g.lineWidth = 1.5; g.strokeStyle = P.dark; g.stroke();
+    g.globalAlpha = 0.35; rr(g, 4, 4, w - 8, h * 0.28, 5); g.fillStyle = '#fff'; g.fill(); g.globalAlpha = 1;
+    g.shadowColor = 'rgba(0,0,0,.25)'; g.shadowBlur = 2; g.shadowOffsetY = 1.2;
+    drawSym(g, P.sym, w / 2, h * 0.5, 11, { fill: '#fff', lw: 3.4 });
+  }); });
+}
+// 飞行中的“木条”：3:1 的木纹长条（带端面符号）
+export function plankAsset(color) {
+  return memo('plank|' + color, () => { const P = pal(color); return mk(180, 60, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, P.light); gr.addColorStop(0.25, P.main); gr.addColorStop(1, P.dark);
+    rr(g, 2, 2, w - 4, h - 4, 12); g.fillStyle = gr; g.fill(); g.lineWidth = 2.5; g.strokeStyle = P.dark; g.stroke();
+    g.save(); rr(g, 2, 2, w - 4, h - 4, 12); g.clip(); g.strokeStyle = shade(P.main, -0.18); g.globalAlpha = 0.35; g.lineWidth = 1.6;
+    for (let i = 0; i < 6; i++) { const y = 8 + i * 8; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(w * 0.3, y + (i % 2 ? 4 : -4), w * 0.6, y + (i % 2 ? -3 : 3), w, y + 1); g.stroke(); } g.restore();
+    g.globalAlpha = 1; drawSym(g, P.sym, w - 26, h / 2, 10, { fill: P.sc, lw: 3 });
+  }); });
+}
+
+// ---- 木箱 ----
+export const CRATE = { w: 160, h: 130 };
+export function crateAsset(color) {
+  return memo('crate|' + color, () => { const P = pal(color); return mk(CRATE.w, CRATE.h, (g, w, h) => {
+    // 底座深色
+    rr(g, 0, 22, w, h - 22, 8); g.fillStyle = P.dark; g.fill();
+    // 主体
+    const gr = g.createLinearGradient(0, 0, 0, h - 18); gr.addColorStop(0, P.light); gr.addColorStop(0.12, P.main); gr.addColorStop(1, P.main);
+    rr(g, 0, 0, w, h - 18, 8); g.fillStyle = gr; g.fill();
+    g.lineWidth = 2; g.strokeStyle = shade(P.main, -0.12); g.stroke();
+    // 木纹
+    g.save(); rr(g, 0, 0, w, h - 18, 8); g.clip(); g.globalAlpha = 0.18; g.strokeStyle = P.dark; g.lineWidth = 1.3;
+    for (let i = 0; i < 4; i++) { const y = h - 52 + i * 8; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(w * 0.3, y - 3, w * 0.6, y + 3, w, y - 1); g.stroke(); } g.restore();
+    // 前下沿浅色板
+    g.globalAlpha = 0.5; g.fillStyle = P.light; g.fillRect(0, h - 56, w, 3); g.globalAlpha = 1;
+    // 内窗（深色）
+    const inner = mix(P.main, '#000000', 0.78);
+    rr(g, 11, 16, w - 22, 72, 5); g.fillStyle = mix(P.dark, '#000', 0.55); g.fill();
+    rr(g, 13, 18, w - 26, 68, 4); g.fillStyle = inner; g.fill();
+    const sw = (w - 26) / 3;
+    for (let i = 0; i < 3; i++) {
+      const x = 13 + i * sw;
+      g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(x + sw - 1.5, 18, 3, 68);
+      g.globalAlpha = 0.5; drawSym(g, P.sym, x + sw / 2, 52, 7.2, { fill: mix(P.main, '#fff', 0.1), lw: 2.4 }); g.globalAlpha = 1;
+    }
+  }); });
+}
+export const CRATE_SLOT = (i) => ({ x: 13 + (CRATE.w - 26) / 6 + i * (CRATE.w - 26) / 3, y: 18 + 34 }); // 槽位中心（素材内坐标，相对左上）
+
+// ---- 托盘 ----
+export const TRAY = { w: 308, h: 118 };
+export function trayAsset(n = 5) {
+  return memo('tray|' + n, () => mk(TRAY.w, TRAY.h, (g, w, h) => {
+    rr(g, 0, 0, w, h, 6); g.fillStyle = '#e0ab6e'; g.fill();
+    const gr = g.createLinearGradient(0, 0, 0, h - 36); gr.addColorStop(0, '#fcd596'); gr.addColorStop(1, '#f4c27e');
+    rr(g, 0, 0, w, h - 18, 6); g.fillStyle = gr; g.fill();
+    g.fillStyle = '#fbd9a0'; g.fillRect(0, h - 40, w, h - (h - 40) - 18);
+    g.fillStyle = '#e9b673'; g.fillRect(0, h - 40, w, 3);
+    g.save(); g.globalAlpha = 0.18; g.strokeStyle = '#a8683a'; g.lineWidth = 1.2;
+    for (let i = 0; i < 3; i++) { const y = h - 32 + i * 6; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(w * 0.3, y - 2, w * 0.6, y + 2, w, y); g.stroke(); } g.restore();
+    const sw = (w - 14) / n;
+    for (let i = 0; i < n; i++) {
+      const x = 8 + i * sw + 3;
+      rr(g, x, 9, sw - 6, h - 58, 5); g.fillStyle = '#71563a'; g.fill();
+      rr(g, x + 1.5, 12, sw - 9, h - 62, 4); g.fillStyle = '#7d5f40'; g.fill();
+      g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(x + 1.5, 12, sw - 9, 5);
+    }
+    g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(3, 3, w - 6, 2.5);
+  }));
+}
+export const TRAY_SLOT = (i, n = 5) => { const sw = (TRAY.w - 14) / n; return { x: 8 + i * sw + sw / 2, y: 9 + (TRAY.h - 58) / 2 + 1, w: sw - 8, h: TRAY.h - 62 }; };
+
+// ---- 文字（带描边） ----
+export function textAsset(str, o = {}) {
+  const size = o.size || 40, fill = o.fill || '#fff', stroke = o.stroke === undefined ? '#3a210f' : o.stroke, sw = o.sw ?? size * 0.16, shadow = o.shadow ?? true;
+  const key = ['text', str, size, fill, stroke, sw, shadow, o.grad || ''].join('|');
+  return memo(key, () => {
+    const m = document.createElement('canvas').getContext('2d'); m.font = `800 ${size}px ${FONT}`;
+    const tw = Math.ceil(m.measureText(str).width + sw * 2 + 8), th = Math.ceil(size * 1.5 + sw * 2 + 6);
+    return mk(tw, th, (g, w, h) => {
+      g.font = `800 ${size}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+      const cy = h / 2 + size * 0.06;
+      if (shadow) { g.fillStyle = 'rgba(0,0,0,.28)'; if (stroke && sw) { g.strokeStyle = 'rgba(0,0,0,.28)'; g.lineWidth = sw * 2; g.strokeText(str, w / 2, cy + size * 0.07); } g.fillText(str, w / 2, cy + size * 0.07); }
+      if (stroke && sw) { g.strokeStyle = stroke; g.lineWidth = sw * 2; g.strokeText(str, w / 2, cy); }
+      if (o.grad) { const gr = g.createLinearGradient(0, cy - size * 0.5, 0, cy + size * 0.5); gr.addColorStop(0, o.grad[0]); gr.addColorStop(1, o.grad[1]); g.fillStyle = gr; } else g.fillStyle = fill;
+      g.fillText(str, w / 2, cy);
+    });
+  });
+}
+
+// ---- 顶栏 ----
+export const HUD = { pillX: 28, pillY: 122, pillW: 568, pillH: 53, trackX: 245, trackW: 333, iconX: 55, iconY: 150, gearX: 654, gearY: 148 };
+export function pillAsset(S) {
+  return memo('pill|' + (S.hudColor || ''), () => mk(HUD.pillW, HUD.pillH + 6, (g, w, h) => {
+    const c = S.hudColor || '#4c2a10';
+    rr(g, 0, 0, w, HUD.pillH, 26); g.fillStyle = shade(c, 0.28); g.fill();
+    rr(g, 1.5, 1.5, w - 3, HUD.pillH - 3, 25); g.fillStyle = c; g.fill();
+    g.fillStyle = 'rgba(255,255,255,.12)'; rr(g, 6, 3, w - 12, 10, 5); g.fill();
+    rr(g, HUD.trackX - HUD.pillX, 8, HUD.trackW, HUD.pillH - 16, 15); g.fillStyle = shade(c, -0.3); g.fill();
+    rr(g, HUD.trackX - HUD.pillX, 8, HUD.trackW, HUD.pillH - 16, 15); g.lineWidth = 1.5; g.strokeStyle = shade(c, 0.12); g.stroke();
+  }, HUD.pillW / 2, HUD.pillH / 2));
+}
+export function barFillAsset(S) {
+  return memo('bar|' + (S.barColor || ''), () => mk(HUD.trackW - 6, HUD.pillH - 22, (g, w, h) => {
+    const c = S.barColor || '#5ad34a';
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, shade(c, 0.35)); gr.addColorStop(0.5, c); gr.addColorStop(1, shade(c, -0.2));
+    rr(g, 0, 0, w, h, h / 2); g.fillStyle = gr; g.fill();
+  }));
+}
+export function stumpIconAsset() {
+  return memo('stumpIcon', () => mk(70, 76, (g, w, h) => {
+    // 树桩
+    g.fillStyle = '#b8743f'; g.beginPath(); g.ellipse(35, 58, 28, 14, 0, 0, 7); g.fill();
+    g.fillStyle = '#d18b52'; g.fillRect(8, 44, 54, 16); g.beginPath(); g.ellipse(35, 44, 27, 11, 0, 0, 7); g.fill();
+    g.fillStyle = '#f1d3a4'; g.beginPath(); g.ellipse(35, 42, 24, 9, 0, 0, 7); g.fill();
+    g.strokeStyle = '#d6a96c'; g.lineWidth = 1; g.beginPath(); g.ellipse(35, 42, 14, 5, 0, 0, 7); g.stroke();
+    // 积木
+    const cols = ['#4a8fe2', '#5fd45a', '#f3dc4a', '#ef4a55'];
+    cols.forEach((c, i) => { g.save(); g.translate(35 + (i % 2 ? 4 : -3), 36 - i * 8); g.rotate((i % 2 ? 0.1 : -0.12)); rr(g, -22, -6, 44, 12, 3); g.fillStyle = c; g.fill(); g.lineWidth = 1.2; g.strokeStyle = shade(c, -0.4); g.stroke(); g.restore(); });
+  }));
+}
+export function gearAsset(S) {
+  return memo('gear|' + (S.gearColor || ''), () => mk(70, 70, (g, w, h) => {
+    const c = S.gearColor || '#f6a02c', cx = 35, cy = 35;
+    g.beginPath();
+    for (let i = 0; i < 8; i++) { const a0 = i * Math.PI / 4 - 0.2, a1 = i * Math.PI / 4 + 0.2, R1 = 32, R0 = 24;
+      g.lineTo(cx + Math.cos(a0 - 0.12) * R0, cy + Math.sin(a0 - 0.12) * R0); g.lineTo(cx + Math.cos(a0) * R1, cy + Math.sin(a0) * R1); g.lineTo(cx + Math.cos(a1) * R1, cy + Math.sin(a1) * R1); g.lineTo(cx + Math.cos(a1 + 0.12) * R0, cy + Math.sin(a1 + 0.12) * R0); }
+    g.closePath(); g.lineJoin = 'round'; g.lineWidth = 5; g.strokeStyle = '#8a4a14'; g.stroke(); g.fillStyle = c; g.fill();
+    g.beginPath(); g.arc(cx, cy, 11, 0, 7); g.fillStyle = '#8a4a14'; g.fill(); g.beginPath(); g.arc(cx, cy, 8, 0, 7); g.fillStyle = '#5db6f0'; g.fill();
+    g.globalAlpha = 0.4; g.fillStyle = '#fff'; g.beginPath(); g.arc(cx - 6, cy - 10, 7, Math.PI, Math.PI * 1.6); g.lineTo(cx, cy - 8); g.fill();
+  }));
+}
+export function badgeAsset(str) {
+  return memo('badge|' + str, () => { const w = Math.max(42, 22 + str.length * 14); return mk(w, 36, (g, w, h) => {
+    rr(g, 0, 0, w, h, 18); g.fillStyle = '#3a2112'; g.fill(); rr(g, 1.5, 1.5, w - 3, h - 3, 17); g.fillStyle = '#5a3520'; g.fill();
+    g.font = `800 22px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(str, w / 2, h / 2 + 2);
+  }); });
+}
+
+// ---- 底部按钮 ----
+export const BTN = { w: 90, h: 92 };
+function lockIcon(g, cx, cy, s) {
+  g.save(); g.translate(cx, cy); g.scale(s, s);
+  g.lineWidth = 6; g.strokeStyle = '#6a6a72'; g.lineCap = 'round'; g.beginPath(); g.arc(0, -8, 11, Math.PI, 0); g.lineTo(11, -2); g.moveTo(-11, -8); g.lineTo(-11, -2); g.stroke();
+  g.lineWidth = 3; g.strokeStyle = '#d8d8de'; g.beginPath(); g.arc(0, -8, 11, Math.PI, 0); g.stroke();
+  rr(g, -15, -4, 30, 24, 6); g.fillStyle = '#ffc928'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#5a3a10'; g.stroke();
+  g.fillStyle = '#4a2f10'; g.beginPath(); g.arc(0, 7, 3.5, 0, 7); g.fill(); g.fillRect(-1.5, 8, 3, 7);
+  g.restore();
+}
+export function boosterAsset(kind, S) {
+  return memo('booster|' + kind, () => mk(BTN.w + 12, BTN.h + 12, (g, w, h) => {
+    const x0 = 6, y0 = 4;
+    rr(g, x0, y0 + 6, BTN.w, BTN.h - 2, 18); g.fillStyle = '#6b5a4a'; g.fill();
+    rr(g, x0, y0, BTN.w, BTN.h - 6, 18); g.fillStyle = '#3d2314'; g.fill();
+    rr(g, x0 + 3.5, y0 + 3.5, BTN.w - 7, BTN.h - 13, 15); g.fillStyle = kind === 'undo' ? '#fffdf6' : '#e7e1d4'; g.fill();
+    g.fillStyle = kind === 'undo' ? '#f0eadc' : '#d7d0c2'; rr(g, x0 + 3.5, y0 + BTN.h * 0.6, BTN.w - 7, BTN.h * 0.3 - 6, 12); g.fill();
+    const cx = x0 + BTN.w / 2, cy = y0 + (BTN.h - 6) / 2;
+    if (kind === 'undo') {
+      g.save(); g.translate(cx, cy); g.lineCap = 'round'; g.lineJoin = 'round';
+      g.beginPath(); g.moveTo(-8, -22); g.lineTo(-24, -6); g.lineTo(-8, 10); g.closePath(); g.lineWidth = 6; g.strokeStyle = '#33495c'; g.stroke(); g.fillStyle = '#7da4c8'; g.fill();
+      g.beginPath(); g.moveTo(-14, -6); g.bezierCurveTo(16, -14, 28, 6, 12, 22); g.bezierCurveTo(6, 27, -4, 27, -12, 24); g.lineWidth = 12; g.strokeStyle = '#33495c'; g.stroke(); g.lineWidth = 6; g.strokeStyle = '#7da4c8'; g.stroke();
+      g.restore();
+    } else { g.globalAlpha = 0.45; g.fillStyle = '#9a9aa2'; rr(g, cx - 22, cy - 18, 44, 34, 6); g.fill(); g.globalAlpha = 1; lockIcon(g, cx, cy + 2, 1.0); }
+  }));
+}
+export function countBadgeAsset(n) {
+  return memo('cb|' + n, () => mk(34, 34, (g, w, h) => {
+    g.beginPath(); g.arc(17, 17, 15, 0, 7); g.fillStyle = '#e03a3a'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#fff'; g.stroke();
+    g.font = `800 20px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(String(n), 17, 19);
+  }));
+}
+export function resetCamAsset() {
+  return memo('resetcam', () => mk(70, 70, (g, w, h) => {
+    rr(g, 3, 3, 64, 64, 16); g.fillStyle = '#3d2314'; g.fill(); rr(g, 6, 6, 58, 54, 13); g.fillStyle = '#efe9dd'; g.fill();
+    g.strokeStyle = '#a0522d'; g.lineWidth = 5; g.lineCap = 'round';
+    for (const [a, b, c, d] of [[18, 28, 18, 18], [18, 18, 28, 18], [52, 28, 52, 18], [52, 18, 42, 18], [18, 40, 18, 50], [18, 50, 28, 50], [52, 40, 52, 50], [52, 50, 42, 50]]) { g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke(); }
+    g.beginPath(); g.moveTo(24, 24); g.lineTo(46, 44); g.moveTo(46, 24); g.lineTo(24, 44); g.stroke();
+  }));
+}
+
+// ---- 提示气泡 ----
+export function tipAsset(str) {
+  return memo('tip|' + str, () => {
+    const m = document.createElement('canvas').getContext('2d'); m.font = `800 24px ${FONT}`;
+    const tw = Math.ceil(m.measureText(str).width) + 56, th = 52;
+    return mk(tw, th + 6, (g, w, h) => {
+      rr(g, 0, 4, w, th, 26); g.fillStyle = 'rgba(0,0,0,.18)'; g.fill();
+      rr(g, 0, 0, w, th, 26); g.fillStyle = '#4a2c18'; g.fill(); rr(g, 3, 3, w - 6, th - 6, 23); g.fillStyle = '#fbf3e1'; g.fill();
+      g.fillStyle = 'rgba(255,255,255,.7)'; rr(g, 12, 5, w - 24, 8, 4); g.fill();
+      g.font = `800 24px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#5a3a22'; g.fillText(str, w / 2, th / 2 + 2);
+    });
+  });
+}
+export function smallTipAsset(str) {
+  return memo('stip|' + str, () => {
+    const m = document.createElement('canvas').getContext('2d'); m.font = `800 18px ${FONT}`;
+    const tw = Math.ceil(m.measureText(str).width) + 34, th = 34;
+    return mk(tw, th + 4, (g, w, h) => {
+      rr(g, 0, 0, th * 0 + w, th, 17); g.fillStyle = '#4a2c18'; g.fill(); rr(g, 2.5, 2.5, w - 5, th - 5, 15); g.fillStyle = '#fbf3e1'; g.fill();
+      g.font = `800 18px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#5a3a22'; g.fillText(str, w / 2, th / 2 + 1.5);
+    });
+  });
+}
+
+// ---- 熊吉祥物（结算面板） ----
+export function bearAsset() {
+  return memo('bear', () => mk(150, 130, (g, w, h) => {
+    const brown = '#a8622e', dark = '#5a2d12', light = '#f2c999';
+    g.lineWidth = 4; g.strokeStyle = dark; g.lineJoin = 'round';
+    for (const x of [28, 122]) { g.beginPath(); g.arc(x, 30, 17, 0, 7); g.fillStyle = brown; g.fill(); g.stroke(); g.beginPath(); g.arc(x, 30, 8, 0, 7); g.fillStyle = light; g.fill(); }
+    g.beginPath(); g.ellipse(75, 70, 52, 46, 0, 0, 7); g.fillStyle = brown; g.fill(); g.stroke();
+    g.beginPath(); g.ellipse(75, 84, 24, 18, 0, 0, 7); g.fillStyle = light; g.fill();
+    g.fillStyle = dark; for (const x of [55, 95]) { g.beginPath(); g.ellipse(x, 62, 6, 8, 0, 0, 7); g.fill(); }
+    g.fillStyle = '#fff'; for (const x of [57, 97]) { g.beginPath(); g.arc(x, 59, 2.4, 0, 7); g.fill(); }
+    g.beginPath(); g.ellipse(75, 76, 8, 6, 0, 0, 7); g.fillStyle = dark; g.fill();
+    g.strokeStyle = dark; g.lineWidth = 3.5; g.lineCap = 'round'; g.beginPath(); g.moveTo(75, 82); g.lineTo(75, 88); g.moveTo(64, 91); g.quadraticCurveTo(75, 100, 86, 91); g.stroke();
+    // 欢呼的爪
+    for (const s of [-1, 1]) { g.save(); g.translate(75 + s * 58, 62); g.rotate(s * -0.4); g.beginPath(); g.ellipse(0, -8, 13, 22, 0, 0, 7); g.fillStyle = brown; g.fill(); g.strokeStyle = dark; g.lineWidth = 4; g.stroke(); g.restore(); }
+  }));
+}
+
+// ---- 结算面板 ----
+export const PANEL = { w: 470, h: 520 };
+export function winPanelAsset(S, level, stars, coins) {
+  return memo(['win', level, stars, coins, S.winTitle].join('|'), () => mk(PANEL.w, PANEL.h, (g, w, h) => {
+    rr(g, 0, 0, w, h, 26); g.fillStyle = '#5a2c0e'; g.fill();
+    rr(g, 5, 5, w - 10, h - 10, 22); g.fillStyle = '#fff4de'; g.fill();
+    rr(g, 5, 5, w - 10, 64, 22); g.fillStyle = '#4bb544'; g.fill(); g.fillStyle = '#4bb544'; g.fillRect(5, 40, w - 10, 29);
+    g.fillStyle = '#3a9638'; g.fillRect(5, 66, w - 10, 3);
+    g.font = `800 36px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineWidth = 6; g.strokeStyle = '#1f5a1d'; g.strokeText(S.winTitle || 'Level Complete!', w / 2, 38); g.fillStyle = '#fff'; g.fillText(S.winTitle || 'Level Complete!', w / 2, 38);
+    g.font = `800 32px ${FONT}`; g.fillStyle = '#6a4326'; g.fillText('Level ' + level, w / 2, 98);
+    const b = bearAsset(); g.drawImage(b.canvas, w / 2 - 75, 112, 150, 130);
+    for (let i = 0; i < 2; i++) { const x = 60 + i * 175; rr(g, x, 270, 160, 90, 14); g.fillStyle = '#f4e3c2'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#d9c39b'; g.stroke();
+      if (i === 0) { g.save(); g.translate(x + 80, 306); g.fillStyle = '#ffc928'; g.strokeStyle = '#a56a12'; g.lineWidth = 3; g.lineJoin = 'round'; g.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rad = k % 2 ? 11 : 26; g.lineTo(Math.cos(a) * rad, Math.sin(a) * rad); } g.closePath(); g.fill(); g.stroke(); g.restore(); }
+      else { g.beginPath(); g.arc(x + 80, 306, 24, 0, 7); g.fillStyle = '#e3a41a'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#8a5a0a'; g.stroke(); g.beginPath(); g.arc(x + 80, 306, 15, 0, 7); g.strokeStyle = '#8a5a0a'; g.stroke(); }
+      g.font = `800 24px ${FONT}`; g.fillStyle = '#6a4326'; g.fillText((i === 0 ? '+' + stars : '+' + coins), x + 80, 346); }
+    rr(g, 40, h - 118, w - 80, 76, 20); g.fillStyle = '#2e7d2c'; g.fill(); rr(g, 40, h - 124, w - 80, 70, 20); g.fillStyle = '#58c04f'; g.fill(); g.fillStyle = 'rgba(255,255,255,.25)'; rr(g, 52, h - 118, w - 104, 14, 7); g.fill();
+    g.font = `800 34px ${FONT}`; g.lineWidth = 5; g.strokeStyle = '#25601f'; g.strokeText(S.winButton || 'Next Level', w / 2, h - 88); g.fillStyle = '#fff'; g.fillText(S.winButton || 'Next Level', w / 2, h - 88);
+  }));
+}
+export function failPanelAsset(S, kind) {
+  return memo(['fail', kind, S.failTitle, S.failButton].join('|'), () => mk(PANEL.w, 440, (g, w, h) => {
+    rr(g, 0, 0, w, h, 26); g.fillStyle = '#5a1f12'; g.fill();
+    rr(g, 5, 5, w - 10, h - 10, 22); g.fillStyle = '#fff4de'; g.fill();
+    rr(g, 5, 5, w - 10, 64, 22); g.fillStyle = '#d9402f'; g.fill(); g.fillRect(5, 40, w - 10, 29); g.fillStyle = '#b32c1f'; g.fillRect(5, 66, w - 10, 3);
+    const title = kind === 'tray' ? (S.trayTitle || 'Tray Full!') : (S.failTitle || 'Tower Fell!');
+    g.font = `800 38px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineWidth = 6; g.strokeStyle = '#6a160d'; g.strokeText(title, w / 2, 38); g.fillStyle = '#fff'; g.fillText(title, w / 2, 38);
+    rr(g, w / 2 - 55, 92, 110, 110, 22); g.fillStyle = '#f0e3c8'; g.fill(); g.lineWidth = 4; g.strokeStyle = '#d4bf94'; g.stroke();
+    const u = boosterAsset('undo', S); g.save(); g.translate(w / 2 - 55 + 55 - 51, 92 + 55 - 51); g.drawImage(u.canvas, 0, 0, 102, 102); g.restore();
+    g.font = `800 24px ${FONT}`; g.fillStyle = '#6a4326'; g.fillText(kind === 'tray' ? (S.trayText || 'No room left on the tray.') : (S.failText || 'Take back the last pull. Free this time!'), w / 2, 238);
+    rr(g, 40, h - 118, w - 80, 76, 20); g.fillStyle = '#2e7d2c'; g.fill(); rr(g, 40, h - 124, w - 80, 70, 20); g.fillStyle = '#58c04f'; g.fill(); g.fillStyle = 'rgba(255,255,255,.25)'; rr(g, 52, h - 118, w - 104, 14, 7); g.fill();
+    g.font = `800 32px ${FONT}`; g.lineWidth = 5; g.strokeStyle = '#25601f'; g.strokeText(S.failButton || 'Play On - Free', w / 2, h - 88); g.fillStyle = '#fff'; g.fillText(S.failButton || 'Play On - Free', w / 2, h - 88);
+  }));
+}
+// 小粒子
+export function confettiAsset(col) { return memo('conf|' + col, () => mk(14, 8, (g, w, h) => { rr(g, 0, 0, w, h, 1.5); g.fillStyle = col; g.fill(); })); }
+export function chipAsset(col) { return memo('chip|' + col, () => mk(14, 14, (g, w, h) => { g.beginPath(); g.moveTo(2, 1); g.lineTo(12, 3); g.lineTo(13, 12); g.lineTo(3, 13); g.closePath(); g.fillStyle = col; g.fill(); })); }
+export function puffAsset() { return memo('puff', () => mk(60, 60, (g, w, h) => { const gr = g.createRadialGradient(30, 30, 2, 30, 30, 28); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 60, 60); })); }
+export function sparkAsset() { return memo('spark', () => mk(30, 30, (g, w, h) => { g.translate(15, 15); g.fillStyle = '#fff'; g.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r = i % 2 ? 3 : 14; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill(); })); }
+// 背景：天空渐变（+ 云层）
+export function drawSky(g, W, H, S) {
+  const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, S.bgTop); gr.addColorStop(0.5, S.bgMid); gr.addColorStop(1, S.bgBottom);
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  if (S.bgGlow > 0) { const r = g.createRadialGradient(W * 0.5, H * 0.72, 10, W * 0.5, H * 0.72, W * 0.95); r.addColorStop(0, `rgba(255,255,255,${S.bgGlow})`); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, W, H); }
+}
