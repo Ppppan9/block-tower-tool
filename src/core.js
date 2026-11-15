@@ -23,6 +23,9 @@ export const LEVELS = [
   { id: 5, layers: 13, per: 3, style: 'jenga', crates: ['green', 'green', 'orange', 'orange', 'blue', 'green', 'orange', 'blue', 'green', 'orange', 'blue', 'blue', 'orange'], hint: 'Spread two fingers to zoom in' },
 ];
 LEVELS[0].crates = ['red', 'yellow', 'blue', 'red'];
+// 参考视频逐层读色（自下而上；偶数层沿 z 排列、奇数层沿 x 排列）
+LEVELS[0].layout = [['red', 'yellow', 'red'], ['blue', 'red', 'red'], ['red', 'yellow', 'blue'], ['red', 'blue', 'yellow']];
+LEVELS[1].layout = [['blue', 'green', 'blue'], ['blue', 'green', 'blue'], ['red', 'red', 'green'], ['green', 'red', 'green'], ['red', 'red', 'blue'], ['blue', 'red', 'green']];
 
 export const DIM = { len: 3.0, wid: 0.98, hgt: 0.62, pitch: 1.0, stumpR: 2.35 };
 
@@ -141,7 +144,8 @@ export function buildLevel(def, seed = 1, opt = {}) {
   for (let attempt = 0; attempt < 400; attempt++) {
     const rnd = mulberry((seed * 7919 + attempt * 104729) >>> 0);
     const cols = colorList.slice();
-    for (let i = cols.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [cols[i], cols[j]] = [cols[j], cols[i]]; }
+    const fixed = def.layout && def.layout.flat().length === shapes.length ? def.layout.flat() : null;
+    if (fixed) { cols.length = 0; cols.push(...fixed); } else for (let i = cols.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [cols[i], cols[j]] = [cols[j], cols[i]]; }
     const blocks = shapes.map((s, i) => ({ ...s, id: i, color: cols[i], sym: PALETTE[cols[i]].sym }));
     const lv = { def, seed, attempt, blocks, crates: crates.map(c => ({ color: c, sym: PALETTE[c].sym })), opt: { cap, trayCap, vis } };
     if (!blocks.every(b => b.layer === 0 || true)) continue;
