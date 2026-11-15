@@ -193,7 +193,7 @@ export function createScene(glCanvas) {
     const rnd = mulberry(seed * 31 + 7); bodies = new Map(); cTime = 0; acc = 0; burst = { done: false, r: mulberry(seed * 77 + 5) };
     // 倒塌强度：塔越高越猛烈（参考视频 L2 轻微扭塌、L3 塌成一堆、L5 整塔炸开）
     let yMin = 1e9, yMax = -1e9; for (const id of ids) { const b = API.blocks[id]; yMin = Math.min(yMin, b.y); yMax = Math.max(yMax, b.y + b.hgt / 2); }
-    const floors = Math.max(1, (yMax - yMin) / (API.blocks[ids[0]] ? API.blocks[ids[0]].hgt : 0.8)), viol = Math.max(1.8, Math.min(2.6, 0.5 + (ids.length - 6) * 0.09)) * (opt.violence ?? 1);
+    const floors = Math.max(1, (yMax - yMin) / (API.blocks[ids[0]] ? API.blocks[ids[0]].hgt : 0.8)), viol = Math.max(2.1, Math.min(2.6, 0.7 + (ids.length - 6) * 0.09)) * (opt.violence ?? 1);
     const lr = Math.hypot(...(opt.pulledXZ || [0, 0])) || 0, ang = lr > 0.05 ? Math.atan2(opt.pulledXZ[1], opt.pulledXZ[0]) : rnd() * 6.28, lx = Math.cos(ang), lz = Math.sin(ang);
     const py = opt.pulledY ?? -1e9, pxz = opt.pulledXZ || [0, 0], k = S.collapseKick * viol, twist = (rnd() < 0.5 ? -1 : 1);
     for (const id of ids) {
@@ -201,8 +201,8 @@ export function createScene(glCanvas) {
       const body = new CANNON.Body({ mass: b.len * b.wid * b.hgt, material: mat, linearDamping: S.linDamp, angularDamping: S.angDamp, allowSleep: true, sleepSpeedLimit: 0.15, sleepTimeLimit: 0.6 });
       body.addShape(new CANNON.Box(new CANNON.Vec3(b.len / 2, b.hgt / 2, b.wid / 2)));
       body.position.set(m.position.x, m.position.y, m.position.z); body.quaternion.set(m.quaternion.x, m.quaternion.y, m.quaternion.z, m.quaternion.w);
-      const h = Math.max(0, Math.min(1, (m.position.y - yMin) / Math.max(0.01, yMax - yMin))), above = m.position.y >= py - 0.05 ? 1 : 0.65;
-      const rx = m.position.x, rz = m.position.z, rl = Math.hypot(rx, rz) || 1, hh = (0.5 + 0.5 * Math.pow(h, 0.8)) * above;
+      const h = Math.max(0, Math.min(1, (m.position.y - yMin) / Math.max(0.01, yMax - yMin))), above = m.position.y >= py - 0.05 ? 1 : 0.9;
+      const rx = m.position.x, rz = m.position.z, rl = Math.hypot(rx, rz) || 1, hh = (0.85 + 0.15 * Math.pow(h, 0.8)) * above;
       // 倾倒方向（被拔块一侧）+ 向外推 + 绕轴扭转 + 随机扰动：越高越猛
       const ca = Math.atan2(rz, rx) + (rl < 0.35 ? rnd() * 6.28 : 0), cx = rl < 0.35 ? Math.cos(ca) : rx / rl, cz = rl < 0.35 ? Math.sin(ca) : rz / rl;
       const lean = k * 5.4 * Math.pow(hh, 1.3), rad = k * 1.6 * hh, rnd2 = () => (rnd() - 0.5) * 2;

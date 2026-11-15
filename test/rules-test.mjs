@@ -104,8 +104,8 @@ for (const n of [3, 5]) {
   const tSettle = await page.evaluate(() => window.__ts);
   const r = await page.evaluate(({ present, y0, w }) => { const A = __app; let tot = 0, moved = 0, bad = 0;
     for (const b of A.LV.blocks) { if (!present[b.id] || b.y < y0 - 0.01 || b.id === A.G.ghostId) continue; tot++; const m = A.SC.meshes[b.id]; const d = Math.hypot(m.position.x - b.x, m.position.y - b.y, m.position.z - b.z); if (!isFinite(d) || Math.abs(m.position.y) > 40) bad++; if (d > w) moved++; }
-    return { tot, moved, bad, settled: A.SC.collapseSettled(), over: A.G.over, colK: A.G.colK }; }, { present: pre.present, y0: pickInfo.y - 0.9, w: pickInfo.wid });
-  check(r.over === 'fell' && r.tot > 3 && r.moved / r.tot >= 0.5 && r.bad === 0 && r.settled && tSettle <= 6, `L${n} 拔承重块 → 整塔倒塌：${r.moved}/${r.tot} 块位移>1 块宽，在 ${tSettle.toFixed(1)}s(物理时间)内全部静止(≤6s)，无飞出 (${JSON.stringify(r)})`);
+    return { tot, moved, bad, settled: A.SC.collapseSettled(), over: A.G.over, colK: A.G.colK }; }, { present: pre.present, y0: -1e9, w: pickInfo.wid });
+  check(r.over === 'fell' && r.tot > 3 && r.moved / r.tot >= 0.6 && r.bad === 0 && r.settled && tSettle <= 6, `L${n} 拔承重块 → 整塔倒塌：${r.moved}/${r.tot} 块(整塔)位移>1 块宽，在 ${tSettle.toFixed(1)}s(物理时间)内全部静止(≤6s)，无飞出 (${JSON.stringify(r)})`);
   check(r.colK < 0.95, `L${n} 倒塌时镜头拉远 (colK=${(+r.colK).toFixed(2)})`);
   await page.waitForFunction(() => __app.G.panel === 'fail', null, { timeout: 15000 });
   await page.evaluate(() => { __app.doUndo(); }); await page.waitForFunction(() => !__app.G.rewinding && !__app.SC.collapse, null, { timeout: 15000 }); await page.waitForTimeout(400);
