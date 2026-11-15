@@ -114,7 +114,7 @@ function buildGame(num) {
 function refit(force) {
   const introK = S.zoomIntro && S.introMs > 0 ? clamp((performance.now() - G.introT0) / S.introMs, 0, 1) : 1;
   const zi = lerp(S.introZoom, 1, easeOut(introK));
-  const key = [W, H, UI.zoom.toFixed(3), zi.toFixed(3), G.n, S.camElev, S.camFov, S.fitMargin, S.towerY, S.stumpR, G.gen].join('|');
+  const key = [W, H, UI.zoom.toFixed(3), zi.toFixed(3), G.n, S.camElev, S.camFov, S.fitMargin, S.fitTall, S.towerY, S.stumpR, G.gen].join('|');
   if (!force && key === G.fitKey) return;
   G.fitKey = key; SC.fit(S, UI.zoom * zi, G.topH);
 }
@@ -239,7 +239,7 @@ function drawTray(now) {
   if (!S.showTray) return;
   const t = TRAY_POS(); put('tray', ART.trayAsset(S.trayCap), t.x, t.y);
   for (let i = 0; i < S.trayCap; i++) {
-    const id = G.view.tray[i]; if (id < 0) continue;
+    const id = G.view.tray[i]; if (id == null || id < 0 || !LV.blocks[id]) continue;
     const sp = traySlotPos(i), tk = clamp((now - (G.view.trayT ? G.view.trayT[i] || 0 : 0)) / 200, 0, 1);
     put('tray_item' + i, ART.tileAsset(LV.blocks[id].color), sp.x, sp.y, { sx: 0.95 * (0.7 + 0.3 * easeBack(tk)) });
   }
@@ -561,7 +561,7 @@ async function autoSolve() {
     if (G.panel === 'end' || (G.cleared && !G.panel && !S.winPanel)) { if (G.panel === 'end' && S.endCardHand) { const b = endButtonRect(); await handMoveTo(b.x, b.y, 600 / spd); await handPress(null, spd); } break; }
     if (G.panel === 'fail' || G.panel === 'tray') {
       await sleep(700 / spd); if (!alive()) break; const P = panelRect(); await handMoveTo(P.bx, P.by, rand(S.moveMin, S.moveMax) / spd); if (!alive()) break;
-      await handPress(() => { doUndo(); }, spd); await sleep(S.rewindMs + 500); continue;
+      await handPress(() => { if (!doUndo()) restartLevel(); }, spd); await sleep(S.rewindMs + 500); continue;
     }
     if (G.over || G.rewinding || G.cleared) { await sleep(100); continue; }
     await settle(); if (!alive()) break;
@@ -646,6 +646,10 @@ canvas.addEventListener('wheel', e => { e.preventDefault(); if (!G) return; UI.z
 // ---------------- 主循环 ----------------
 let lastFrame = performance.now();
 function frame() {
+  try { frameBody(); } catch (e) { if (!frame.err) { frame.err = 1; console.error('frame error', e); } }
+  requestAnimationFrame(frame);
+}
+function frameBody() {
   const now = performance.now(), dt = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
   for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; const k = Math.min(1, (now - tw.t0) / tw.dur); tw.fn(tw.ease(k), k); if (k >= 1) { tweens.splice(i, 1); tw.res(); } }
   FRAME = { items: [], tower: -1 };
@@ -678,7 +682,6 @@ function frame() {
   drawHand();
   if (REC.rec) updateRecTime();
   if (AE.active()) { AE.sample(now, FRAME); updateAEButtons(); }
-  requestAnimationFrame(frame);
 }
 
 // ---------------- 录制 ----------------
@@ -736,7 +739,7 @@ function onSetting(item, v) {
   else if (item.kind === 'mesh') { if (G) { SC.build(LV, S); SC.present = ST.present; syncBlocksVisual(); refit(true); } }
   else if (item.kind === 'art') { ART.setPalette(S); if (G && /^col_/.test(item.k)) { SC.build(LV, S); syncBlocksVisual(); } }
   else if (item.kind === 'res') { if (REC.rec) { toast('录制中不能修改分辨率'); return; } setResolution(); newGame(true); }
-  else { if (G && ['camElev', 'camFov', 'fitMargin', 'towerY'].includes(item.k)) refit(true); if (['lightIntensity'].includes(item.k) && G) SC.applyLights(S); }
+  else { if (G && ['camElev', 'camFov', 'fitMargin', 'fitTall', 'towerY'].includes(item.k)) refit(true); if (['lightIntensity'].includes(item.k) && G) SC.applyLights(S); }
   if (item.k.startsWith('hand')) drawHandPreview();
   if (item.k === 'manualHand' || item.k === 'hideCursor') updateCursor();
 }
@@ -885,13 +888,14 @@ window.__app = {
   setSetting(k, v) { const it = SCHEMA.flatMap(g => g.items).find(i => i.k === k); if (it) { onSetting(it, v); syncPanel(); } else S[k] = v; },
   newGame, autoSolve, stopAuto, startRecording, stopRecording, tapBlock, clickPointFor, importJSON, audioState, sfx, resumeAudio, handleClick, doUndo, nextLevel, restartLevel, handState, endCardState, endCardHidesHand, endButtonRect, panelRect, boosterLayout, critNow, toast,
   core: { applyPull, pullOutcome, criticalSet, solve, newState, matchCrate },
+  get tweenCount() { return tweens.length; }, get pulling() { return G ? [...G.pulling] : []; },
   idle: () => !!G && !G.flights.length && !G.pulling.size && !G.rewinding && !tweens.length,
 };
 const __h5 = applyPlayableMode({
   applySettings: ps => { Object.assign(S, ps); },
   autoPlay: () => { try { autoSolve(); } catch (e) { } },
   state: () => { try { return G ? JSON.stringify([G.n, ST.present.map(x => +x), ST.tray, ST.crateQ.map(c => c.fill && c.fill.length), G.over, G.panel]) : ''; } catch (e) { return ''; } },
-  isEnded: () => { try { return !!(G && (G.panel === 'end' || (G.cleared && !S.winPanel) || G.panel === 'win' && !S.winNext)); } catch (e) { return false; } },
+  isEnded: () => { try { return !!(G && (G.panel === 'end' || G.panel === 'win' || G.panel === 'fail' || G.panel === 'tray')); } catch (e) { return false; } },
   onResize: () => { },
 });
 if (__h5) { try { const panel = document.getElementById('panel'); if (panel) panel.style.display = 'none'; } catch (e) { } }

@@ -94,12 +94,12 @@ export function createScene(glCanvas) {
     if (stumpGroup) { tower.remove(stumpGroup); stumpGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); }
     const R = S.stumpR; stumpGroup = new THREE.Group(); tower.add(stumpGroup);
     // 侧壁：lathe + 随机波动
-    const prof = [[R - 0.18, 0.0], [R - 0.02, -0.04], [R + 0.03, -0.16], [R + 0.02, -0.45], [R + 0.1, -0.78], [R + 0.3, -1.04], [R + 0.36, -1.12]].map(p => new THREE.Vector2(p[0], p[1]));
+    const prof = [[R - 0.18, 0.0], [R - 0.02, -0.04], [R + 0.03, -0.12], [R + 0.03, -0.3], [R + 0.08, -0.46], [R + 0.22, -0.6], [R + 0.3, -0.66]].map(p => new THREE.Vector2(p[0], p[1]));
     const lg = new THREE.LatheGeometry(prof, 72), pos = lg.attributes.position, col = new Float32Array(pos.count * 3), c1 = new THREE.Color(S.stumpBark), c2 = new THREE.Color(S.stumpBarkDark), c0 = new THREE.Color(S.stumpTop);
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), a = Math.atan2(z, x), w = 1 + 0.035 * Math.sin(a * 3 + 1) + 0.022 * Math.sin(a * 5 + 2) + 0.012 * Math.sin(a * 9);
       pos.setXYZ(i, x * w, y, z * w);
-      const t = Math.min(1, Math.max(0, -y / 1.1)), cc = y > -0.06 ? c0.clone() : c1.clone().lerp(c2, Math.pow(t, 0.8));
+      const t = Math.min(1, Math.max(0, -y / 0.66)), cc = y > -0.06 ? c0.clone() : c1.clone().lerp(c2, Math.pow(t, 0.8));
       col[i * 3] = cc.r; col[i * 3 + 1] = cc.g; col[i * 3 + 2] = cc.b;
     }
     lg.setAttribute('color', new THREE.BufferAttribute(col, 3)); lg.computeVertexNormals();
@@ -110,12 +110,12 @@ export function createScene(glCanvas) {
       const m = new THREE.Group(), st = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.2, 10), new THREE.MeshStandardMaterial({ color: 0xfff1de })); st.position.y = 0.1; m.add(st);
       const cap = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xe8423a })); cap.position.y = 0.2; m.add(cap);
       for (let i = 0; i < 5; i++) { const sp = new THREE.Mesh(new THREE.CircleGeometry(0.035, 8), new THREE.MeshBasicMaterial({ color: 0xffffff })); const a = i * 1.3, r = 0.1 + (i % 2) * 0.06; sp.position.set(Math.cos(a) * r, 0.2 + Math.sqrt(Math.max(0.01, 0.04 - r * r * 0.5)) * 0.9 + 0.03, Math.sin(a) * r); sp.lookAt(sp.position.clone().multiplyScalar(2)); m.add(sp); }
-      m.position.set(-R * 0.92, -0.42, R * 0.52); m.scale.setScalar(1.5); m.castShadow = true; stumpGroup.add(m);
+      m.position.set(-R * 0.92, -0.25, R * 0.52); m.scale.setScalar(1.5); m.castShadow = true; stumpGroup.add(m);
     }
     if (S.sprout) {
       const lf = new THREE.MeshStandardMaterial({ color: 0x5fbf4a, side: THREE.DoubleSide }), sp = new THREE.Group();
       for (const s of [-1, 1]) { const l = new THREE.Mesh(new THREE.CircleGeometry(0.1, 8), lf); l.scale.set(1.6, 0.8, 1); l.position.set(s * 0.14, 0.05, 0); l.rotation.set(-1.0, 0, s * 0.5); sp.add(l); }
-      sp.position.set(R * 0.28, -0.7, R * 1.0); sp.rotation.x = 0.35; stumpGroup.add(sp);
+      sp.position.set(R * 0.28, -0.42, R * 1.0); sp.rotation.x = 0.35; stumpGroup.add(sp);
     }
   };
   API.setSize = (w, h) => { API.W = w; API.H = h; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
@@ -136,9 +136,10 @@ export function createScene(glCanvas) {
       const top = pj(0, th, 0)[1];
       return { w: maxX - minX, top };
     };
-    // 二分：满足 stump 宽度 ≤ (1-2*margin)W 且塔顶 ≥ 0.36H
-    let lo = 6, hi = 80;
-    for (let i = 0; i < 28; i++) { const mid = (lo + hi) / 2, p = probe(mid); if (p.w > W * (1 - 2 * S.fitMargin) || p.top < H * 0.36) lo = mid; else hi = mid; }
+    // 取景：树桩总宽 ≤ min(1-2·margin, fitTall/塔高)·W（高塔相机拉远，对应参考视频 L5），且塔顶不压到 HUD（≥0.38H）
+    const wMax = Math.min(1 - 2 * S.fitMargin, S.fitTall / Math.max(1, th));
+    let lo = 6, hi = 90;
+    for (let i = 0; i < 28; i++) { const mid = (lo + hi) / 2, p = probe(mid); if (p.w > W * wMax || p.top < H * 0.38) lo = mid; else hi = mid; }
     API.fitD = hi; const d = hi / (zoomK || 1);
     probe(d); API.zoomD = d;
   };

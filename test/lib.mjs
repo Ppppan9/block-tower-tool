@@ -6,7 +6,7 @@ export async function launch(opt = {}) {
   const page = await browser.newPage({ viewport: opt.viewport || { width: 1100, height: 900 }, acceptDownloads: true });
   const errors = [];
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-  page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  page.on('pageerror', e => errors.push('pageerror: ' + e.message + ' @ ' + String(e.stack).split('\n').slice(1, 4).join(' | ')));
   await page.goto(opt.url || ('file://' + path.join(root, 'index.html')));
   await page.waitForFunction(() => window.__app && window.__app.G, null, { timeout: 20000 });
   await page.waitForTimeout(opt.wait ?? 600);

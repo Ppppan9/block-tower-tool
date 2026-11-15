@@ -11,14 +11,14 @@ export const DEFAULTS = {
   undoUnlock: 3, undoCount: 1, failFreeUndo: true, winPanel: true, autoNext: true, endAfterLevels: 5, failOnTrayFull: true, trayWarnLeft: 1,
   comboWords: 'Great!,Awesome!,Amazing!', comboEvery: 2, showPlusOne: true,
   // 积木外观
-  blockLen: 3, blockWid: 0.98, blockHgt: 0.62, blockRadius: 0.07, grain: 0.5, symbolDepth: 0.55, edgeShade: 0.2, blockGloss: 0.25,
+  blockLen: 3, blockWid: 0.98, blockHgt: 0.83, blockRadius: 0.07, grain: 0.5, symbolDepth: 0.55, edgeShade: 0.2, blockGloss: 0.25,
   col_red: '#ef4a55', col_yellow: '#f3dc4a', col_blue: '#4a8fe2', col_green: '#5fd45a', col_orange: '#f59a3a', col_purple: '#7c4fd6',
   highlightColor: '#ffe14d', ghostAlpha: 0.7,
   // 树桩 / 场景
-  stumpR: 2.35, stumpTop: '#f0d6b4', stumpRing: '#d9b283', stumpBark: '#cf8a55', stumpBarkDark: '#a8623a', stumpCracks: true, mushroom: true, sprout: true,
-  bgTop: '#5cbaf0', bgMid: '#9dd7f6', bgBottom: '#e4f5fd', bgGlow: 0.25, shadowStrength: 0.38, shadowSoft: 3, lightIntensity: 1.0, ambient: 0.75, lightAngle: 40,
+  stumpR: 2.5, stumpTop: '#f0d6b4', stumpRing: '#d9b283', stumpBark: '#e0a071', stumpBarkDark: '#ae8260', stumpCracks: true, mushroom: true, sprout: true,
+  bgTop: '#4fb7ef', bgMid: '#9dd7f6', bgBottom: '#e4f5fd', bgGlow: 0.25, shadowStrength: 0.38, shadowSoft: 3, lightIntensity: 1.0, ambient: 0.75, lightAngle: 40,
   // 镜头
-  camElev: 30, camFov: 22, fitMargin: 0.06, towerY: 0.68, zoomMin: 0.6, zoomMax: 2.2, rotateSpeed: 0.8, idleSpin: 0, startYaw: 38, zoomIntro: true, introZoom: 1.55, introMs: 1100,
+  camElev: 30, camFov: 22, fitMargin: 0.045, fitTall: 4.9, blockScales: '0.82,0.72,0.75,0.75,0.92', blockScaleDefault: 0.75, towerY: 0.72, zoomMin: 0.6, zoomMax: 2.2, rotateSpeed: 0.8, idleSpin: 0, startYaw: 38, zoomIntro: true, introZoom: 1.55, introMs: 1100,
   // 界面
   hudColor: '#4c2a10', barColor: '#5ad34a', gearColor: '#f6a02c', crateScale4: 0.78, crateSlideMs: 380, tipMs: 3200, hudShow: true, showTray: true, showBoosters: true,
   winTitle: 'Level Complete!', winButton: 'Next Level', failTitle: 'Tower Fell!', failText: 'Take back the last pull. Free this time!', failButton: 'Play On - Free', trayTitle: 'Tray Full!', trayText: 'No room left on the tray.',
@@ -94,7 +94,7 @@ export const SCHEMA = [
   { group: '积木外观', items: [
     R('blockLen', '积木长度', 2, 4, 0.05, { kind: 'regen' }),
     R('blockWid', '积木宽度', 0.5, 1.1, 0.01, { kind: 'regen' }),
-    R('blockHgt', '积木厚度', 0.3, 1, 0.01, { kind: 'regen' }),
+    R('blockHgt', '积木厚度', 0.3, 1, 0.01, { kind: 'regen' }), T('blockScales', '各关积木整体缩放（逗号分隔，第 n 关取第 n 项）', { kind: 'regen' }), R('blockScaleDefault', '其余关卡积木缩放', 0.4, 1.2, 0.01, { kind: 'regen' }),
     R('blockRadius', '圆角', 0, 0.2, 0.005, { kind: 'mesh' }),
     R('grain', '木纹强度', 0, 1, 0.05, { kind: 'mesh' }),
     R('symbolDepth', '端面符号深浅', 0, 1, 0.05, { kind: 'mesh' }),
@@ -106,7 +106,7 @@ export const SCHEMA = [
     R('ghostAlpha', '被拔出时半透明度', 0.2, 1, 0.05),
   ]},
   { group: '树桩 / 场景', items: [
-    R('stumpR', '树桩半径', 1.8, 3.2, 0.05, { kind: 'mesh' }),
+    R('stumpR', '树桩半径', 1.8, 4.5, 0.05, { kind: 'mesh' }),
     C('stumpTop', '树桩顶面颜色', { kind: 'mesh' }), C('stumpRing', '年轮颜色', { kind: 'mesh' }), C('stumpBark', '树皮颜色', { kind: 'mesh' }), C('stumpBarkDark', '树皮暗部', { kind: 'mesh' }),
     B('stumpCracks', '树桩裂纹线', { kind: 'mesh' }), B('mushroom', '小蘑菇', { kind: 'mesh' }), B('sprout', '嫩芽', { kind: 'mesh' }),
     C('bgTop', '天空颜色（顶）'), C('bgMid', '天空颜色（中）'), C('bgBottom', '天空颜色（底）'), R('bgGlow', '底部光晕', 0, 0.8, 0.01),
@@ -114,7 +114,7 @@ export const SCHEMA = [
     R('lightIntensity', '主光强度', 0.3, 2.2, 0.05, { kind: 'mesh' }), R('ambient', '环境光', 0.2, 1.5, 0.05, { kind: 'mesh' }), R('lightAngle', '主光方位角', -180, 180, 5, { kind: 'mesh' }),
   ]},
   { group: '镜头 / 操作', items: [
-    R('camElev', '俯视角度(度)', 10, 70, 1), R('camFov', '视场角', 10, 50, 1), R('fitMargin', '取景边距', 0, 0.3, 0.01), R('towerY', '塔底在画面中的纵向位置', 0.5, 0.9, 0.01),
+    R('camElev', '俯视角度(度)', 10, 70, 1), R('camFov', '视场角', 10, 50, 1), R('fitMargin', '树桩最大宽度边距', 0, 0.3, 0.01), R('fitTall', '高塔取景：树桩宽度×塔高 ≤ 此值', 2, 9, 0.1), R('towerY', '塔底在画面中的纵向位置', 0.5, 0.9, 0.01),
     R('zoomMin', '最小缩放', 0.3, 1, 0.05), R('zoomMax', '最大缩放', 1, 4, 0.05), R('rotateSpeed', '滑动旋转灵敏度', 0.2, 2, 0.05), R('idleSpin', '空闲自转(度/秒)', 0, 40, 1),
     R('startYaw', '初始旋转角(度)', -180, 180, 1),
     B('zoomIntro', '关卡开始时镜头由近拉远'), R('introZoom', '开场拉远起始倍数', 1, 3, 0.05), R('introMs', '开场拉远时长(ms)', 0, 3000, 50),
