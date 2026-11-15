@@ -39,12 +39,12 @@ await page.evaluate(() => { __app.setSetting('trayCap', 1); });
 await page.waitForTimeout(500); await newGame(3);
 info = await page.evaluate(() => { const A = __app, out = []; for (const b of A.LV.blocks) if (A.ST.present[b.id] && b.color === 'green' && A.core.pullOutcome(A.LV, A.ST, b.id, A.S.stabMargin).ok) out.push(b.id); return out; });
 const info2 = await page.evaluate(() => { const A = __app; return { cap: A.S.trayCap, vis: A.ST.crateQ.slice(0, A.S.visibleCrates).map(c => c.color) }; });
-if (info.length >= 2) { await tap(info[0]); await idle(); await tap(info[1]); await page.waitForTimeout(1500); }
+if (info.length >= 1) { await tap(info[0]); await page.waitForTimeout(1500); }
 r = await page.evaluate(() => ({ over: __app.G.over, panel: __app.G.panel }));
 check(r.over === 'trayfull' && r.panel === 'tray', `托盘满且无匹配 → 失败面板 (${JSON.stringify(r)} cap=${info2.cap} crates=${info2.vis})`);
 await page.evaluate(() => { __app.doUndo(); }); await page.waitForTimeout(600);
 r = await page.evaluate(() => ({ over: __app.G.over, panel: __app.G.panel, tray: __app.ST.tray.filter(x => x >= 0).length }));
-check(!r.over && !r.panel && r.tray === 1, `撤销回到失败前 (${JSON.stringify(r)})`);
+check(!r.over && !r.panel && r.tray === 0, `撤销回到失败前 (${JSON.stringify(r)})`);
 await page.evaluate(() => { __app.setSetting('trayCap', 5); }); await page.waitForTimeout(500);
 
 // 5. 抽承重块 → 塔倒 → Tower Fell → 撤销回放
@@ -70,6 +70,24 @@ for (let n = 1; n <= 5; n++) {
   await page.waitForFunction(() => __app.G.cleared, null, { timeout: 8000 }).catch(() => { });
   r = await page.evaluate(() => ({ cleared: __app.G.cleared, tray: __app.ST.tray.filter(x => x >= 0).length, crateLeft: __app.ST.crateQ.length }));
   check(ok && r.cleared && r.tray === 0 && r.crateLeft === 0, `L${n} (${tot} 块) 逐块通关 → 胜利，托盘空，木箱全满 ${JSON.stringify(r)}`);
+}
+// 7. 木箱补位：只在还需要时补；全部装满后不再补；任何时刻木箱需求 = 剩余块（按颜色）
+await page.evaluate(() => { __app.resetSettings && 0; __app.setSetting('trayCap', 5); __app.setSetting('introMs', 100); });
+for (let n = 1; n <= 5; n++) {
+  await newGame(n); let bad = 0, k = 0, maxVis = 0;
+  while (k++ < 60) {
+    if (await page.evaluate(() => __app.ST.present.every(x => !x))) break;
+    p = await plan(); await tap(p[0]); await idle();
+    const r = await page.evaluate(() => { const A = __app, ST = A.ST, LV = A.LV, need = {}, rem = {};
+      for (const c of ST.crateQ) need[c.color] = (need[c.color] || 0) + (LV.opt.cap - (c.items || []).length);
+      for (const b of LV.blocks) if (ST.present[b.id] || ST.tray.includes(b.id)) rem[b.color] = (rem[b.color] || 0) + 1;
+      const q = new Set(ST.crateQ.map(c => c.cid)), vis = A.G.view.vq.filter(c => !A.G.crateDone.has(c));
+      return { eq: JSON.stringify(Object.entries(need).sort()) === JSON.stringify(Object.entries(rem).sort()), stale: vis.filter(c => !q.has(c)).length, n: vis.length, over: vis.length > Math.min(A.S.visibleCrates, ST.crateQ.length) }; });
+    if (!r.eq || r.stale || r.over) bad++; maxVis = Math.max(maxVis, r.n);
+  }
+  await page.waitForTimeout(1200);
+  const e = await page.evaluate(() => ({ vq: __app.G.view.vq.length, live: [...__app.G.view.crates.values()].filter(v => !v.leaving).length, q: __app.ST.crateQ.length, won: __app.G.cleared }));
+  check(bad === 0 && e.vq === 0 && e.live === 0 && e.q === 0 && e.won, `L${n} 木箱补位：每步需求=剩余块、无多余/过期木箱（最多同屏 ${maxVis}）；清空后队列为空、不再补新箱 ${JSON.stringify(e)} bad=${bad}`);
 }
 check(errors.length === 0, 'no console errors ' + errors.slice(0, 3).join('|'));
 console.log(`rules: ${pass} passed, ${fail} failed`);

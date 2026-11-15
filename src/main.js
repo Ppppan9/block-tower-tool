@@ -98,7 +98,7 @@ function buildGame(num) {
   const vis = S.visibleCrates;
   G = {
     n: num, gen, lv: LV, view: { vq: LV.crates.slice(0, vis).map((c, i) => i), crates: new Map(), tray: Array(S.trayCap).fill(-1), trayBusy: Array(S.trayCap).fill(false) },
-    flights: [], floaters: [], parts: [], ripples: [], tips: [], pulling: new Set(), snaps: [], over: null, overT: 0, locked: false, cleared: false, clearT: 0, panel: null, panelT: 0,
+    flights: [], floaters: [], parts: [], ripples: [], tips: [], crateDone: new Set(), pulling: new Set(), snaps: [], over: null, overT: 0, locked: false, cleared: false, clearT: 0, panel: null, panelT: 0,
     undoLeft: S.undoCount, combo: 0, crateArrivals: 0, shake: null, tut: true, confirmId: -1, trayTipShown: false, fellAt: 0, hintShown: false, rewinding: false, lastPullT: 0,
     fullFlash: [], endShown: false, introT0: performance.now(), wonT: 0, tapped: false, swiped: false, failed: 0,
   };
@@ -217,7 +217,7 @@ function drawCrates(now) {
   const kfollow = S.crateSlideMs > 0 ? 1 - Math.exp(-dt * 7 / (S.crateSlideMs / 1000)) : 1;
   const remaining = LV.crates.length - (G.fullCount || 0);
   const list = [];
-  G.view.vq.forEach((cid, i) => { const v = ensureCrate(cid, true); const t = crateTarget(v); v.x += (t.x - v.x) * kfollow; v.y += (t.y - v.y) * kfollow; v.s += (t.s - v.s) * kfollow; list.push([v, i]); });
+  G.view.vq.forEach((cid, i) => { if (G.crateDone.has(cid)) return; const v = ensureCrate(cid, true); const t = crateTarget(v); v.x += (t.x - v.x) * kfollow; v.y += (t.y - v.y) * kfollow; v.s += (t.s - v.s) * kfollow; list.push([v, i]); });
   for (const v of G.view.crates.values()) if (v.leaving) list.push([v, -1]);
   for (const [v, i] of list) {
     let pulse = 1;
@@ -352,9 +352,16 @@ async function pullAnim(id, gen, frac = 1) {
   await tween(S.pullMs * frac, k => { m.position.set(b.x + dx * slide * k, b.y + 0.02 * Math.sin(k * Math.PI), b.z + dz * slide * k); }, easeOut);
   return gen === G.gen ? SC.blockScreen(id) : null;
 }
+// 木箱队列补位：只补“还没装满、也不在场”的下一个木箱（按队列顺序）；全部装满后不再补
+function refillCrates() {
+  while (G.view.vq.length < S.visibleCrates) {
+    const cid = LV.crates.findIndex((c, i) => !G.crateDone.has(i) && !G.view.vq.includes(i) && !(G.view.crates.get(i) && G.view.crates.get(i).leaving));
+    if (cid < 0) break; G.view.vq.push(cid); ensureCrate(cid, true);
+  }
+}
 function arriveCrate(ev, quiet = false) {
   const v = ensureCrate(ev.cid), b = LV.blocks[ev.b];
-  if (!G.view.vq.includes(ev.cid)) G.view.vq.push(ev.cid);
+  if (!G.view.vq.includes(ev.cid) && !G.crateDone.has(ev.cid)) G.view.vq.push(ev.cid);
   v.items[ev.slot] = ev.b; (v.itemT = v.itemT || [])[ev.slot] = performance.now(); G.shown = (G.shown || 0) + 1; G.crateArrivals++;
   sfx('Crate'); if (S.showPlusOne) { const sp = crateSlotPos(v, ev.slot); floater('+1', sp.x + 14 * U, sp.y - 30 * U, { size: 34, dur: 800, vy: -50 }); }
   updateStatus();
@@ -362,12 +369,16 @@ function arriveCrate(ev, quiet = false) {
 }
 async function waitFor(cond, ms = 2500, gen = G.gen) { const t0 = performance.now(); while (!cond() && performance.now() - t0 < ms && gen === G.gen) await sleep(30); }
 async function playEvents(id, ev, gen) {
+  const g0 = G; g0.evBusy = (g0.evBusy || 0) + 1;
+  try { await playEvents0(id, ev, gen); } finally { g0.evBusy--; }
+}
+async function playEvents0(id, ev, gen) {
   const bs = await pullAnim(id, gen); if (!bs || gen !== G.gen) return;
   const m = SC.meshes[id]; m.visible = false; SC.setGhost(id, 1); G.pulling.delete(id);
   const b = LV.blocks[id], from = fromPlank(bs);
   const main = ev[0];
   if (main && main.t === 'crate') {
-    const v = ensureCrate(main.cid); if (!G.view.vq.includes(main.cid)) G.view.vq.push(main.cid);
+    const v = ensureCrate(main.cid); if (!G.view.vq.includes(main.cid) && !G.crateDone.has(main.cid)) G.view.vq.push(main.cid);
     await flight(from, () => { const p = crateSlotPos(v, main.slot, false); return { x: p.x, y: p.y, w: 46 * 0.86 * p.s * U * 1.0, h: 70 * 0.86 * p.s * U, tw: 46 * 0.86 * p.s * U, th: 70 * 0.86 * p.s * U }; }, b.color);
     if (gen !== G.gen) return; arriveCrate(main);
   } else if (main && main.t === 'tray') {
@@ -388,11 +399,10 @@ async function playEvents(id, ev, gen) {
       floater(fulls > 1 ? fulls + ' Crates Full!' : 'Crate Full!', v.x, v.y - 60 * U, { size: 30, fill: '#ffd02a', stroke: '#4a2a10', dur: 1100, vy: -40 });
       await sleep(S.crateFullMs * 0.65); if (gen !== G.gen) return;
       v.leaving = true; v.lt0 = performance.now(); G.view.vq = G.view.vq.filter(c => c !== e.cid); G.fullCount = (G.fullCount || 0) + 1;
-      const nextCid = Math.max(...G.view.vq, ...[...G.view.crates.keys()], -1) + 1;
-      if (nextCid < LV.crates.length && G.view.vq.length < S.visibleCrates && !G.view.vq.includes(nextCid) && !(nextCid <= e.cid)) { G.view.vq.push(nextCid); ensureCrate(nextCid, true); }
+      G.crateDone.add(e.cid); refillCrates();
     } else if (e.t === 't2c') {
       await waitFor(() => G.view.tray[e.from] === e.b, 2500, gen); if (gen !== G.gen) return;
-      const v = ensureCrate(e.cid); if (!G.view.vq.includes(e.cid)) { G.view.vq.push(e.cid); }
+      const v = ensureCrate(e.cid); if (!G.view.vq.includes(e.cid) && !G.crateDone.has(e.cid)) { G.view.vq.push(e.cid); }
       G.view.tray[e.from] = -1; const bb = LV.blocks[e.b], sp0 = traySlotPos(e.from);
       await flight({ x: sp0.x, y: sp0.y, w: 44 * U, h: 66 * U, rot: 0 }, () => { const p = crateSlotPos(v, e.slot); return { x: p.x, y: p.y, w: 46 * 0.86 * p.s * U, h: 70 * 0.86 * p.s * U, tw: 46 * 0.86 * p.s * U, th: 70 * 0.86 * p.s * U }; }, bb.color, S.flyMs * 0.8);
       if (gen !== G.gen) return; arriveCrate(e, true);
@@ -439,7 +449,8 @@ function failTrayFull() {
   if (!S.failOnTrayFull || G.panel) return; G.over = 'trayfull'; G.overT = performance.now(); G.panel = 'tray'; G.panelT = performance.now(); sfx('Tray'); updateStatus();
 }
 function onWin() {
-  if (G.cleared) return; G.cleared = true; G.clearT = performance.now(); sfx('Win'); updateStatus();
+  if (G.cleared) return; G.cleared = true;
+  for (const cid of G.view.vq.slice()) { const v = G.view.crates.get(cid); if (v && !v.leaving) { v.leaving = true; v.lt0 = performance.now(); } G.crateDone.add(cid); } G.view.vq = []; G.clearT = performance.now(); sfx('Win'); updateStatus();
   floater('Level Complete!', W / 2, tY(760), { size: 74, grad: ['#fff2a0', '#ffb81c'], stroke: '#5a2a0a', dur: 2600, vy: -20 });
   if (S.confettiOnWin) rainConfetti(Math.round(S.confettiCount * 1.6));
   const gen = G.gen, last = S.endAfterLevels > 0 && G.n >= S.endAfterLevels && S.endCard;
@@ -467,7 +478,7 @@ async function undoTo(snap, free = false) {
   G.shown = snap.shown; G.fullCount = snap.full; G.crateArrivals = snap.arrivals; G.combo = snap.combo;
   if (!free && G.undoLeft > 0) G.undoLeft--;
   // 重建木箱 / 托盘视图
-  G.view.crates.clear(); G.view.vq = ST.crateQ.slice(0, S.visibleCrates).map(c => c.cid);
+  G.view.crates.clear(); G.view.vq = ST.crateQ.slice(0, S.visibleCrates).map(c => c.cid); { const q = new Set(ST.crateQ.map(c => c.cid)); G.crateDone = new Set(LV.crates.map((c, i) => i).filter(i => !q.has(i))); }
   for (const c of ST.crateQ.slice(0, S.visibleCrates)) { const v = ensureCrate(c.cid, false); v.items = (c.items || []).slice(); }
   G.view.tray = ST.tray.slice();
   for (const b of LV.blocks) { const m = SC.meshes[b.id]; SC.setOutline(b.id, false); SC.setGhost(b.id, 1); m.visible = ST.present[b.id]; if (!hadCollapse) SC.setBasePose(b.id); }
@@ -889,7 +900,7 @@ window.__app = {
   newGame, autoSolve, stopAuto, startRecording, stopRecording, tapBlock, clickPointFor, importJSON, audioState, sfx, resumeAudio, handleClick, doUndo, nextLevel, restartLevel, handState, endCardState, endCardHidesHand, endButtonRect, panelRect, boosterLayout, critNow, toast,
   core: { applyPull, pullOutcome, criticalSet, solve, newState, matchCrate },
   get tweenCount() { return tweens.length; }, get pulling() { return G ? [...G.pulling] : []; },
-  idle: () => !!G && !G.flights.length && !G.pulling.size && !G.rewinding && !tweens.length,
+  idle: () => !!G && !G.evBusy && !G.flights.length && !G.pulling.size && !G.rewinding && !tweens.length,
 };
 const __h5 = applyPlayableMode({
   applySettings: ps => { Object.assign(S, ps); },
