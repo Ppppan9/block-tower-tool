@@ -908,7 +908,7 @@ window.__app = {
   get S() { return S; }, get G() { return G; }, get LV() { return LV; }, get ST() { return ST; }, get HAND() { return HAND; }, get AUTO() { return AUTO; }, get REC() { return REC; }, SC, THREE,
   setSetting(k, v) { const it = SCHEMA.flatMap(g => g.items).find(i => i.k === k); if (it) { onSetting(it, v); syncPanel(); } else S[k] = v; },
   newGame, autoSolve, stopAuto, startRecording, stopRecording, tapBlock, clickPointFor, importJSON, audioState, sfx, resumeAudio, handleClick, doUndo, nextLevel, restartLevel, handState, endCardState, endCardHidesHand, endButtonRect, panelRect, boosterLayout, critNow, toast,
-  core: { applyPull, pullOutcome, criticalSet, solve, newState, matchCrate },
+  core: { LEVELS, applyPull, pullOutcome, criticalSet, solve, newState, matchCrate },
   get tweenCount() { return tweens.length; }, get pulling() { return G ? [...G.pulling] : []; },
   idle: () => !!G && !G.evBusy && !G.flights.length && !G.pulling.size && !G.rewinding && !tweens.length,
 };

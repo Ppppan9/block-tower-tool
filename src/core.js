@@ -26,6 +26,12 @@ LEVELS[0].crates = ['red', 'yellow', 'blue', 'red'];
 // 参考视频逐层读色（自下而上；偶数层沿 z 排列、奇数层沿 x 排列）
 LEVELS[0].layout = [['red', 'yellow', 'red'], ['blue', 'red', 'red'], ['red', 'yellow', 'blue'], ['red', 'blue', 'yellow']];
 LEVELS[1].layout = [['blue', 'green', 'blue'], ['blue', 'green', 'blue'], ['red', 'red', 'green'], ['green', 'red', 'green'], ['red', 'red', 'blue'], ['blue', 'red', 'green']];
+// L3：参考视频 1:09 帧逐层读色（自下而上）
+LEVELS[2].layout = [['orange', 'orange', 'green'], ['green', 'orange', 'green'], ['green', 'orange', 'orange'], ['orange', 'orange', 'green'], ['orange', 'green', 'green'], ['orange', 'green', 'orange'], ['green', 'green', 'orange'], ['green', 'green', 'orange'], ['orange', 'green', 'orange'], ['orange', 'green', 'green']];
+LEVELS[2].flipOdd = true; LEVELS[2].flipEven = false;
+// L5：参考视频 2:46 帧逐层读色（可见端面/前排长条按帧；被挡住的块按颜色数量补齐）
+LEVELS[4].layout = [['orange', 'green', 'blue'], ['orange', 'green', 'blue'], ['orange', 'green', 'blue'], ['green', 'green', 'blue'], ['orange', 'green', 'green'], ['blue', 'orange', 'green'], ['orange', 'blue', 'blue'], ['blue', 'blue', 'orange'], ['orange', 'blue', 'orange'], ['orange', 'green', 'blue'], ['orange', 'blue', 'green'], ['orange', 'orange', 'green'], ['green', 'orange', 'orange']];
+LEVELS[4].flipOdd = false; LEVELS[4].flipEven = false;
 
 export const DIM = { len: 3.0, wid: 0.98, hgt: 0.62, pitch: 1.0, stumpR: 2.35 };
 
@@ -144,7 +150,7 @@ export function buildLevel(def, seed = 1, opt = {}) {
   for (let attempt = 0; attempt < 400; attempt++) {
     const rnd = mulberry((seed * 7919 + attempt * 104729) >>> 0);
     const cols = colorList.slice();
-    const fixed = def.layout && def.layout.flat().length === shapes.length ? def.layout.flat() : null;
+    const lay = def.layout && def.layout.map((arr, L) => ((L % 2 ? def.flipOdd : def.flipEven) ? arr.slice().reverse() : arr)), fixed = attempt === 0 && lay && lay.flat().length === shapes.length ? lay.flat() : null;
     if (fixed) { cols.length = 0; cols.push(...fixed); } else for (let i = cols.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [cols[i], cols[j]] = [cols[j], cols[i]]; }
     const blocks = shapes.map((s, i) => ({ ...s, id: i, color: cols[i], sym: PALETTE[cols[i]].sym }));
     const lv = { def, seed, attempt, blocks, crates: crates.map(c => ({ color: c, sym: PALETTE[c].sym })), opt: { cap, trayCap, vis } };
