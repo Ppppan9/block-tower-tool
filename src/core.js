@@ -253,6 +253,6 @@ export function levelDef(S, n) {
 export function makeLevel(S, n) {
   const def = levelDef(S, n);
   const ks = String(S.blockScales || '').split(',').map(x => parseFloat(x)), k = (isFinite(ks[n - 1]) && ks[n - 1] > 0 ? ks[n - 1] : (S.blockScaleDefault || 1));
-  DIM.len = S.blockLen * k; DIM.wid = S.blockWid * k; DIM.hgt = S.blockHgt * k; DIM.stumpR = S.stumpR; DIM.pitch = DIM.wid + 0.02 * k;
+  DIM.len = S.blockLen * k; DIM.wid = S.blockWid * k; const hs = String(S.hgtScales || '').split(',').map(x => parseFloat(x)), hk = isFinite(hs[n - 1]) && hs[n - 1] > 0 ? hs[n - 1] : 1; DIM.hgt = S.blockHgt * k * hk; DIM.stumpR = S.stumpR; DIM.pitch = DIM.wid + 0.02 * k;
   return buildLevel(def, (S.seed || 1) + n * 17, { crateCap: S.crateCap, trayCap: S.trayCap, visible: S.visibleCrates });
 }

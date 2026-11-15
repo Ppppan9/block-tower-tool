@@ -11,21 +11,21 @@ export const DEFAULTS = {
   undoUnlock: 3, undoCount: 1, failFreeUndo: true, winPanel: true, autoNext: true, endAfterLevels: 5, failOnTrayFull: true, trayWarnLeft: 1,
   comboWords: 'Great!,Awesome!,Amazing!', comboEvery: 2, showPlusOne: true,
   // 积木外观
-  blockLen: 3, blockWid: 0.98, blockHgt: 0.83, blockRadius: 0.07, grain: 0.5, symbolDepth: 0.55, edgeShade: 0.2, blockGloss: 0.25,
+  blockLen: 3, blockWid: 0.98, blockHgt: 0.56, hgtScales: '1.04,1.0,0.98,0.95,0.92', blockRadius: 0.07, grain: 0.95, symbolDepth: 0.55, edgeShade: 0.2, blockGloss: 0.04,
   col_red: '#ef4a55', col_yellow: '#f3dc4a', col_blue: '#4a8fe2', col_green: '#5fd45a', col_orange: '#f59a3a', col_purple: '#7c4fd6',
   highlightColor: '#ffe14d', ghostAlpha: 0.7,
   // 树桩 / 场景
   stumpR: 2.5, stumpTop: '#f0d6b4', stumpRing: '#d9b283', stumpBark: '#e0a071', stumpBarkDark: '#ae8260', stumpCracks: true, mushroom: true, sprout: true,
-  bgTop: '#4fb7ef', bgMid: '#9dd7f6', bgBottom: '#e4f5fd', bgGlow: 0.25, shadowStrength: 0.38, shadowSoft: 3, lightIntensity: 1.0, ambient: 0.75, lightAngle: 40,
+  bgTop: '#4fb7ef', bgMid: '#9dd7f6', bgBottom: '#e4f5fd', bgGlow: 0.25, shadowStrength: 0.38, shadowSoft: 3, lightIntensity: 0.85, ambient: 1.1, lightAngle: 40,
   // 镜头
-  camElev: 30, camFov: 22, fitMargin: 0.045, fitTall: 4.9, blockScales: '0.82,0.72,0.75,0.75,0.92', blockScaleDefault: 0.75, towerY: 0.72, zoomMin: 0.6, zoomMax: 2.2, rotateSpeed: 0.8, idleSpin: 0, startYaw: 38, zoomIntro: true, introZoom: 1.55, introMs: 1100,
+  camElev: 24, camFov: 22, fitMargin: 0.045, fitTall: 4.9, levelZoom: '1,1,1,1,1', stumpWidths: '0.9,0.9,0.8,1.05,0.62', blockScales: '1.3,1.0,1.3,0.9,1.2', blockScaleDefault: 0.75, towerY: 0.72, zoomMin: 0.6, zoomMax: 2.2, rotateSpeed: 0.8, idleSpin: 0, startYaw: 22, zoomIntro: true, introZoom: 1.55, introMs: 1100,
   // 界面
   hudColor: '#4c2a10', barColor: '#5ad34a', gearColor: '#f6a02c', crateScale4: 0.78, crateSlideMs: 380, tipMs: 3200, hudShow: true, showTray: true, showBoosters: true,
   winTitle: 'Level Complete!', winButton: 'Next Level', failTitle: 'Tower Fell!', failText: 'Take back the last pull. Free this time!', failButton: 'Play On - Free', trayTitle: 'Tray Full!', trayText: 'No room left on the tray.',
   // 动画
   pullSlide: 0.95, pullMs: 210, flyMs: 340, flyArc: 0.2, flyScale: 1.0, crateFullMs: 520, popScale: 1.18, rewindMs: 850, collapseGraceMs: 2300, popupMs: 1400, shakeOnFall: 6,
   // 物理（倒塌动画）
-  gravity: 24, friction: 0.55, restitution: 0.05, collapseKick: 0.6, linDamp: 0.05, angDamp: 0.1,
+  gravity: 24, friction: 0.55, restitution: 0.05, collapseKick: 0.7, collapseZoom: 0.52, linDamp: 0.05, angDamp: 0.1,
   // 粒子
   confettiCount: 70, debrisCount: 14, dustPuffs: 4, particleSize: 1, particleGravity: 1, confettiOnCrate: true, confettiOnWin: true,
   // 音效
@@ -94,7 +94,7 @@ export const SCHEMA = [
   { group: '积木外观', items: [
     R('blockLen', '积木长度', 2, 4, 0.05, { kind: 'regen' }),
     R('blockWid', '积木宽度', 0.5, 1.1, 0.01, { kind: 'regen' }),
-    R('blockHgt', '积木厚度', 0.3, 1, 0.01, { kind: 'regen' }), T('blockScales', '各关积木整体缩放（逗号分隔，第 n 关取第 n 项）', { kind: 'regen' }), R('blockScaleDefault', '其余关卡积木缩放', 0.4, 1.2, 0.01, { kind: 'regen' }),
+    R('blockHgt', '积木厚度(基准)', 0.3, 1, 0.01, { kind: 'regen' }), T('hgtScales', '各关积木厚度系数（逗号分隔）', { kind: 'regen' }), T('levelZoom', '各关镜头缩放（逗号分隔，>1 拉近）'), T('stumpWidths', '各关树桩占画面宽度比例（逗号分隔；空=自动取景）'), T('blockScales', '各关积木整体缩放（逗号分隔，第 n 关取第 n 项）', { kind: 'regen' }), R('blockScaleDefault', '其余关卡积木缩放', 0.4, 1.2, 0.01, { kind: 'regen' }),
     R('blockRadius', '圆角', 0, 0.2, 0.005, { kind: 'mesh' }),
     R('grain', '木纹强度', 0, 1, 0.05, { kind: 'mesh' }),
     R('symbolDepth', '端面符号深浅', 0, 1, 0.05, { kind: 'mesh' }),
@@ -132,7 +132,7 @@ export const SCHEMA = [
     R('collapseGraceMs', '倒塌多久后弹失败面板(ms)', 500, 6000, 100), R('popupMs', '赞美词/飘字停留(ms)', 300, 3000, 50), R('shakeOnFall', '倒塌时屏幕震动(px)', 0, 30, 1),
   ]},
   { group: '物理（倒塌动画 / cannon-es）', items: [
-    R('gravity', '重力', 5, 60, 1), R('friction', '摩擦', 0.1, 1, 0.01), R('restitution', '弹性', 0, 0.6, 0.01), R('collapseKick', '倒塌初始扰动', 0, 2, 0.05), R('linDamp', '线性阻尼', 0, 0.5, 0.01), R('angDamp', '角阻尼', 0, 0.8, 0.01),
+    R('gravity', '重力', 5, 60, 1), R('friction', '摩擦', 0.1, 1, 0.01), R('restitution', '弹性', 0, 0.6, 0.01), R('collapseKick', '倒塌初始扰动', 0, 2, 0.05), R('collapseZoom', '倒塌时镜头拉远系数(<1 拉远)', 0.4, 1, 0.01), R('linDamp', '线性阻尼', 0, 0.5, 0.01), R('angDamp', '角阻尼', 0, 0.8, 0.01),
   ]},
   { group: '粒子', items: [
     R('confettiCount', '彩带数量', 0, 200, 1), R('debrisCount', '拔出碎屑数量', 0, 60, 1), R('dustPuffs', '灰尘团数量', 0, 12, 1), R('particleSize', '粒子大小倍数', 0.3, 3, 0.05), R('particleGravity', '粒子重力倍数', 0.2, 3, 0.05),

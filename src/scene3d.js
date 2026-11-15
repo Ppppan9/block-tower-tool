@@ -12,11 +12,14 @@ export function woodSideCanvas(key, S, seed = 1) {
   const P = pal(key), c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d'), rnd = mulberry(seed * 977 + key.length * 31);
   const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, shade(P.main, 0.08)); gr.addColorStop(1, shade(P.main, -0.06)); g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
   g.lineCap = 'round';
-  for (let i = 0; i < 16; i++) {
-    const y = 4 + i * 8 + rnd() * 5, a = (rnd() - 0.5) * 7, lw = 0.8 + rnd() * 2.2; g.beginPath();
-    g.moveTo(-5, y); g.bezierCurveTo(70, y + a, 150, y - a * 1.4, 261, y + a * 0.5);
-    g.strokeStyle = rnd() < 0.5 ? `rgba(0,0,0,${0.07 * S.grain + 0.02})` : `rgba(255,255,255,${0.12 * S.grain + 0.02})`; g.lineWidth = lw; g.stroke();
+  // 木纹：长而起伏的亮/暗纹（参考视频里彩色积木上清晰可见的白色旋涡纹）
+  for (let i = 0; i < 26; i++) {
+    const y = 2 + i * 5 + rnd() * 4, a1 = (rnd() - 0.5) * 16, a2 = (rnd() - 0.5) * 16, lw = 0.7 + rnd() * 2.6, light = rnd() < 0.62; g.beginPath();
+    g.moveTo(-5, y); g.bezierCurveTo(60, y + a1, 150, y + a2, 261, y + (a1 - a2) * 0.4);
+    g.strokeStyle = light ? `rgba(255,255,255,${0.2 * S.grain + 0.03})` : `rgba(0,0,0,${0.16 * S.grain + 0.02})`; g.lineWidth = lw; g.stroke();
   }
+  // 大块年轮晕纹
+  for (let i = 0; i < 3; i++) { const cx = 20 + rnd() * 220, cy = 18 + rnd() * 90; for (let k = 1; k < 5; k++) { g.beginPath(); g.ellipse(cx, cy, 14 * k + rnd() * 6, 3.4 * k + rnd() * 2, (rnd() - 0.5) * 0.15, 0, 7); g.strokeStyle = `rgba(255,255,255,${0.15 * S.grain * (1 - k * 0.15)})`; g.lineWidth = 1 + rnd(); g.stroke(); } }
   // 木节
   if (S.grain > 0.15) for (let i = 0; i < 2; i++) { const x = 30 + rnd() * 200, y = 20 + rnd() * 90; g.strokeStyle = `rgba(0,0,0,${0.12 * S.grain})`; g.lineWidth = 1.4; for (let k = 1; k < 4; k++) { g.beginPath(); g.ellipse(x, y, 5 * k + 4, 2.2 * k + 1.5, 0, 0, 7); g.stroke(); } }
   // 边缘压暗（上下沿）
@@ -137,9 +140,9 @@ export function createScene(glCanvas) {
       return { w: maxX - minX, top };
     };
     // 取景：树桩总宽 ≤ min(1-2·margin, fitTall/塔高)·W（高塔相机拉远，对应参考视频 L5），且塔顶不压到 HUD（≥0.38H）
-    const wMax = Math.min(1 - 2 * S.fitMargin, S.fitTall / Math.max(1, th));
+    const sw = String(S.stumpWidths || '').split(',').map(parseFloat)[(API.levelNum || 1) - 1], wMax = isFinite(sw) && sw > 0 ? sw : Math.min(1 - 2 * S.fitMargin, S.fitTall / Math.max(1, th));
     let lo = 6, hi = 90;
-    for (let i = 0; i < 28; i++) { const mid = (lo + hi) / 2, p = probe(mid); if (p.w > W * wMax || p.top < H * 0.38) lo = mid; else hi = mid; }
+    for (let i = 0; i < 28; i++) { const mid = (lo + hi) / 2, p = probe(mid); if (p.w > W * wMax || p.top < H * 0.3) lo = mid; else hi = mid; }
     API.fitD = hi; const d = hi / (zoomK || 1);
     probe(d); API.zoomD = d;
   };
@@ -165,6 +168,7 @@ export function createScene(glCanvas) {
     if (a >= 0.999) { m.material = base.slice(); m.castShadow = true; return; }
     m.material = base.map(x => { const c = x.clone(); c.transparent = true; c.opacity = a; return c; });
   };
+  API.setGhostAlpha = (id, a) => { const m = API.meshes[id]; if (!m) return; for (const x of Array.isArray(m.material) ? m.material : [m.material]) if (x.transparent) x.opacity = Math.max(0, a); m.visible = a > 0.01 || m.visible; };
   API.setBasePose = id => { const b = API.blocks[id], m = API.meshes[id]; m.position.set(b.x, b.y, b.z); m.quaternion.setFromEuler(new THREE.Euler(0, b.yaw, 0)); m.scale.set(1, 1, 1); };
   API.makeBlock = (b, S) => { const m = new THREE.Mesh(geo(b, S), mats(b.color, S).slice()); m.name = 'Block_' + b.id; m.castShadow = true; return m; };
   API.stumpClone = () => stumpGroup ? stumpGroup.clone(true) : new THREE.Group();
@@ -180,29 +184,46 @@ export function createScene(glCanvas) {
   // ---- 倒塌（cannon-es） ----
   let world = null, bodies = new Map(), cTime = 0;
   API.collapse = null;
-  API.startCollapse = function (ids, S, seed = 1) {
+  API.startCollapse = function (ids, S, seed = 1, opt = {}) {
     API.stopCollapse();
-    world = new CANNON.World({ gravity: new CANNON.Vec3(0, -S.gravity, 0) }); world.allowSleep = true; world.solver.iterations = 14;
-    const mat = new CANNON.Material('wood'); world.defaultContactMaterial = new CANNON.ContactMaterial(mat, mat, { friction: S.friction, restitution: S.restitution });
+    world = new CANNON.World({ gravity: new CANNON.Vec3(0, -S.gravity, 0) }); world.allowSleep = true; world.solver.iterations = 18;
+    const mat = new CANNON.Material('wood'); world.defaultContactMaterial = new CANNON.ContactMaterial(mat, mat, { friction: 0.1, restitution: S.restitution }); fric = S.friction;
     const stump = new CANNON.Body({ mass: 0, material: mat }); stump.addShape(new CANNON.Cylinder(S.stumpR - 0.05, S.stumpR - 0.05, 1.1, 28)); stump.position.set(0, -0.55, 0); world.addBody(stump);
     const gnd = new CANNON.Body({ mass: 0, material: mat }); gnd.addShape(new CANNON.Plane()); gnd.quaternion.setFromEuler(-Math.PI / 2, 0, 0); gnd.position.set(0, -1.1, 0); world.addBody(gnd);
-    const rnd = mulberry(seed * 31 + 7); bodies = new Map(); cTime = 0;
+    const rnd = mulberry(seed * 31 + 7); bodies = new Map(); cTime = 0; acc = 0; burst = { done: false, r: mulberry(seed * 77 + 5) };
+    // 倒塌强度：塔越高越猛烈（参考视频 L2 轻微扭塌、L3 塌成一堆、L5 整塔炸开）
+    let yMin = 1e9, yMax = -1e9; for (const id of ids) { const b = API.blocks[id]; yMin = Math.min(yMin, b.y); yMax = Math.max(yMax, b.y + b.hgt / 2); }
+    const floors = Math.max(1, (yMax - yMin) / (API.blocks[ids[0]] ? API.blocks[ids[0]].hgt : 0.8)), viol = Math.max(1.8, Math.min(2.6, 0.5 + (ids.length - 6) * 0.09)) * (opt.violence ?? 1);
+    const lr = Math.hypot(...(opt.pulledXZ || [0, 0])) || 0, ang = lr > 0.05 ? Math.atan2(opt.pulledXZ[1], opt.pulledXZ[0]) : rnd() * 6.28, lx = Math.cos(ang), lz = Math.sin(ang);
+    const py = opt.pulledY ?? -1e9, pxz = opt.pulledXZ || [0, 0], k = S.collapseKick * viol, twist = (rnd() < 0.5 ? -1 : 1);
     for (const id of ids) {
       const b = API.blocks[id], m = API.meshes[id];
-      const body = new CANNON.Body({ mass: b.len * b.wid * b.hgt, material: mat, linearDamping: S.linDamp, angularDamping: S.angDamp, allowSleep: true, sleepSpeedLimit: 0.12, sleepTimeLimit: 0.5 });
+      const body = new CANNON.Body({ mass: b.len * b.wid * b.hgt, material: mat, linearDamping: S.linDamp, angularDamping: S.angDamp, allowSleep: true, sleepSpeedLimit: 0.15, sleepTimeLimit: 0.6 });
       body.addShape(new CANNON.Box(new CANNON.Vec3(b.len / 2, b.hgt / 2, b.wid / 2)));
       body.position.set(m.position.x, m.position.y, m.position.z); body.quaternion.set(m.quaternion.x, m.quaternion.y, m.quaternion.z, m.quaternion.w);
-      const k = S.collapseKick; body.velocity.set((rnd() - 0.5) * k * 1.5, 0, (rnd() - 0.5) * k * 1.5); body.angularVelocity.set((rnd() - 0.5) * k, (rnd() - 0.5) * k * 0.6, (rnd() - 0.5) * k);
+      const h = Math.max(0, Math.min(1, (m.position.y - yMin) / Math.max(0.01, yMax - yMin))), above = m.position.y >= py - 0.05 ? 1 : 0.65;
+      const rx = m.position.x, rz = m.position.z, rl = Math.hypot(rx, rz) || 1, hh = (0.5 + 0.5 * Math.pow(h, 0.8)) * above;
+      // 倾倒方向（被拔块一侧）+ 向外推 + 绕轴扭转 + 随机扰动：越高越猛
+      const ca = Math.atan2(rz, rx) + (rl < 0.35 ? rnd() * 6.28 : 0), cx = rl < 0.35 ? Math.cos(ca) : rx / rl, cz = rl < 0.35 ? Math.sin(ca) : rz / rl;
+      const lean = k * 5.4 * Math.pow(hh, 1.3), rad = k * 1.6 * hh, rnd2 = () => (rnd() - 0.5) * 2;
+      body.velocity.set(lx * lean + cx * rad + rnd2() * k * 1.3 * hh - twist * rz * 0.5 * k * hh, (rnd() - 0.1) * k * 3.2 * hh, lz * lean + cz * rad + rnd2() * k * 1.0 * hh + twist * rx * 0.5 * k * hh);
+      body.angularVelocity.set(rnd2() * k * 5 * hh + lz * k * 2.4 * hh, rnd2() * k * 3 * hh + twist * k * 1.2 * hh, rnd2() * k * 5 * hh - lx * k * 2.4 * hh);
       world.addBody(body); bodies.set(id, body);
     }
-    API.collapse = { ids: ids.slice(), t: 0 };
+    API.collapse = { ids: ids.slice(), t: 0, violence: viol };
   };
+  let acc = 0, fric = 0.5, burst = { done: false, r: Math.random };
+  // 固定步长（与帧率无关）：1/120 s，最多 40 步/次
   API.stepPhysics = function (dt) {
     if (!world) return;
-    world.step(1 / 120, dt, 8); cTime += dt;
+    acc += Math.min(dt, 0.25); let n = 0; const h = 1 / 120;
+    if (!burst.done && cTime >= 0.6 && API.collapse && API.collapse.violence > 1.5) { burst.done = true; const B = Math.min(1, (API.collapse.violence - 1.5) / 1.1) * 5.5 + 3.2; for (const body of bodies.values()) { const r = Math.hypot(body.position.x, body.position.z) || 1; body.velocity.x += body.position.x / r * B * (0.5 + burst.r()) + (burst.r() - 0.5) * B; body.velocity.z += body.position.z / r * B * (0.5 + burst.r()) + (burst.r() - 0.5) * B; body.velocity.y += burst.r() * B * 0.9; body.angularVelocity.x += (burst.r() - 0.5) * B * 3; body.angularVelocity.z += (burst.r() - 0.5) * B * 3; body.wakeUp(); } }
+    while (acc >= h && n < 40) { if (cTime > 1.3) world.defaultContactMaterial.friction = fric; world.step(h); acc -= h; n++; cTime += h; }
+    if (acc >= h) acc = 0;
     for (const [id, body] of bodies) { const m = API.meshes[id]; m.position.set(body.position.x, body.position.y, body.position.z); m.quaternion.set(body.quaternion.x, body.quaternion.y, body.quaternion.z, body.quaternion.w); }
     API.collapse.t = cTime;
   };
+  API.bodyInfo = () => [...bodies.entries()].map(([id, b]) => ({ id, y: +b.position.y.toFixed(2), v: +b.velocity.length().toFixed(2), s: b.sleepState, m: +b.mass.toFixed(2) }));
   API.collapseSettled = () => { if (!world) return true; for (const b of bodies.values()) if (b.sleepState !== CANNON.Body.SLEEPING && (b.velocity.lengthSquared() > 0.04 || b.angularVelocity.lengthSquared() > 0.04)) return false; return true; };
   let rw = null;
   API.rewindStart = ids => { rw = ids.map(id => { const m = API.meshes[id], b = API.blocks[id]; return { id, p0: m.position.clone(), q0: m.quaternion.clone(), p1: new THREE.Vector3(b.x, b.y, b.z), q1: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, b.yaw, 0)) }; }); };

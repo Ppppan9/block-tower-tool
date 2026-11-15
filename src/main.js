@@ -111,12 +111,13 @@ function buildGame(num) {
   G.tutId = S.tutorialHighlight && num === 1 && LV.solution ? LV.solution[0] : -1;
   updateStatus(); updateButtons();
 }
+function levelZoom() { const z = String(S.levelZoom || '').split(',').map(parseFloat)[G.n - 1]; return isFinite(z) && z > 0 ? z : 1; }
 function refit(force) {
   const introK = S.zoomIntro && S.introMs > 0 ? clamp((performance.now() - G.introT0) / S.introMs, 0, 1) : 1;
   const zi = lerp(S.introZoom, 1, easeOut(introK));
-  const key = [W, H, UI.zoom.toFixed(3), zi.toFixed(3), G.n, S.camElev, S.camFov, S.fitMargin, S.fitTall, S.towerY, S.stumpR, G.gen].join('|');
+  const key = [W, H, UI.zoom.toFixed(3), zi.toFixed(3), G.n, S.camElev, S.camFov, S.fitMargin, S.fitTall, S.levelZoom, S.stumpWidths, S.towerY, S.stumpR, G.gen, (G.colK || 1).toFixed(3)].join('|');
   if (!force && key === G.fitKey) return;
-  G.fitKey = key; SC.fit(S, UI.zoom * zi, G.topH);
+  G.fitKey = key; SC.levelNum = G.n; SC.fit(S, UI.zoom * zi * (G.colK || 1) * levelZoom(), G.topH);
 }
 function updateStatus() {
   if (!G) return;
@@ -435,13 +436,15 @@ function tapBlock(id, fromAuto = false) {
 }
 async function topple(id, gen) {
   ST.over = 'fell'; G.over = 'fell'; G.overT = performance.now(); updateStatus();
-  const ids = LV.blocks.filter(b => ST.present[b.id]).map(b => b.id);
+  const ids = LV.blocks.filter(b => ST.present[b.id] && b.id !== id).map(b => b.id);
   const m = SC.meshes[id]; SC.setOutline(id, false);
   sfx('Fall'); G.shake = { t0: performance.now(), amp: S.shakeOnFall };
   await pullAnim(id, gen, 0.55); if (gen !== G.gen) return;
-  SC.setGhost(id, S.ghostAlpha); // 被拔块继续随塔一起倒
-  SC.startCollapse(ids, S, ST.moves + G.n);
+  SC.setGhost(id, S.ghostAlpha); // 被拔块半透明留在原地（参考视频：被拔块变幽灵）
+  const pb = LV.blocks[id], pm = SC.meshes[id];
+  SC.startCollapse(ids, S, ST.moves + G.n, { pulledY: pb.y, pulledXZ: [pb.x, pb.z] });
   G.pulling.delete(id);
+  G.collapseT0 = performance.now(); G.ghostId = id;
   await sleep(S.collapseGraceMs); if (gen !== G.gen) return;
   G.panel = 'fail'; G.panelT = performance.now(); sfx('Warn'); updateStatus();
 }
@@ -485,7 +488,7 @@ async function undoTo(snap, free = false) {
   sfx('Undo'); showTip('Rewind!', 1400, true); updateStatus();
   if (hadCollapse) await tween(S.rewindMs, k => SC.rewindStep(k), easeInOut);
   for (const b of LV.blocks) if (ST.present[b.id]) SC.setBasePose(b.id);
-  G.rewinding = false; G.gen = gen;
+  G.rewinding = false; G.gen = gen; G.ghostId = -1;
 }
 function doUndo() {
   if (!G || G.rewinding || G.panel === 'win' || G.panel === 'end') return false;
@@ -665,7 +668,11 @@ function frameBody() {
   for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; const k = Math.min(1, (now - tw.t0) / tw.dur); tw.fn(tw.ease(k), k); if (k >= 1) { tweens.splice(i, 1); tw.res(); } }
   FRAME = { items: [], tower: -1 };
   if (G) {
-    if (SC.collapse) SC.stepPhysics(dt);
+    if (SC.collapse) {
+      SC.stepPhysics(dt);
+      const ck = clamp((now - (G.collapseT0 || now)) / 700, 0, 1); G.colK = lerp(1, lerp(Math.min(1, S.collapseZoom + 0.3), S.collapseZoom, clamp((SC.collapse.violence - 1.8) / 0.8, 0, 1)), easeOut(ck));
+      if (G.ghostId >= 0) SC.setGhostAlpha && SC.setGhostAlpha(G.ghostId, S.ghostAlpha * (1 - clamp((now - G.collapseT0) / 900, 0, 1)));
+    } else if (G.colK && G.colK !== 1) G.colK += (1 - G.colK) * Math.min(1, dt * 5);
     if (S.idleSpin && !UI.ptrs.size && !G.over && !AUTO.running) { SC.setYaw(SC.yaw + S.idleSpin * Math.PI / 180 * dt); }
     refit();
     G.lastDraw = G.lastDraw || now;
