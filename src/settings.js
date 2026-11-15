@@ -29,7 +29,7 @@ export const DEFAULTS = {
   // 粒子
   confettiCount: 70, debrisCount: 14, dustPuffs: 4, particleSize: 1, particleGravity: 1, confettiOnCrate: true, confettiOnWin: true,
   // 音效
-  sfxMute: false, sfxVolume: 0.8,
+  sfxMute: false, sfxVolume: 0.8, sfxSource: 'ref',
   sfxPull: true, sfxPullVol: 1, sfxLand: true, sfxLandVol: 1, sfxCrate: true, sfxCrateVol: 1, sfxFull: true, sfxFullVol: 1, sfxCombo: true, sfxComboVol: 1, sfxFall: true, sfxFallVol: 1,
   sfxWin: true, sfxWinVol: 1, sfxUndo: true, sfxUndoVol: 1, sfxWarn: true, sfxWarnVol: 1, sfxTray: true, sfxTrayVol: 1, sfxTap: true, sfxTapVol: 1,
   // 手指 / 自动通关
@@ -139,7 +139,7 @@ export const SCHEMA = [
     B('confettiOnCrate', '满箱撒彩带'), B('confettiOnWin', '通关撒彩带'),
   ]},
   { group: '音效', items: [
-    B('sfxMute', '静音'), R('sfxVolume', '总音量', 0, 1.5, 0.01),
+    B('sfxMute', '静音'), S('sfxSource', '音效来源', [['ref', '参考视频音轨片段（点击/拔出/入箱/通关）+ 合成补全'], ['synth', '全部合成']]), R('sfxVolume', '总音量', 0, 1.5, 0.01),
     B('sfxTap', '点击'), R('sfxTapVol', '点击 音量', 0, 2, 0.01), B('sfxPull', '拔出'), R('sfxPullVol', '拔出 音量', 0, 2, 0.01), B('sfxLand', '入槽'), R('sfxLandVol', '入槽 音量', 0, 2, 0.01),
     B('sfxCrate', '入箱'), R('sfxCrateVol', '入箱 音量', 0, 2, 0.01), B('sfxFull', '满箱'), R('sfxFullVol', '满箱 音量', 0, 2, 0.01), B('sfxCombo', '赞美词'), R('sfxComboVol', '赞美词 音量', 0, 2, 0.01),
     B('sfxFall', '倒塌'), R('sfxFallVol', '倒塌 音量', 0, 2, 0.01), B('sfxWin', '通关'), R('sfxWinVol', '通关 音量', 0, 2, 0.01), B('sfxUndo', '撤销'), R('sfxUndoVol', '撤销 音量', 0, 2, 0.01),

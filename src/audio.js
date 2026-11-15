@@ -19,6 +19,22 @@ function ensure() {
 export function resumeAudio() { ensure(); return AC && AC.state !== 'running' ? AC.resume().catch(() => {}) : Promise.resolve(); }
 export function audioTrack() { ensure(); return recDest ? recDest.stream.getAudioTracks()[0] : null; }
 export function audioState() { return AC ? AC.state : 'none'; }
+import { SFX_SAMPLES } from './sfx_data.js';
+const sampleCache = {};
+function samplePCM(name) {
+  if (sampleCache[name] !== undefined) return sampleCache[name];
+  const b64 = SFX_SAMPLES[name]; if (!b64) return (sampleCache[name] = null);
+  const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < u.length; i++) u[i] = bin.charCodeAt(i);
+  const dv = new DataView(u.buffer); let p = 12, sr = 22050, data = null;
+  while (p + 8 <= u.length) { const id = String.fromCharCode(u[p], u[p + 1], u[p + 2], u[p + 3]), sz = dv.getUint32(p + 4, true); if (id === 'fmt ') sr = dv.getUint32(p + 12, true); if (id === 'data') { const n = Math.min(sz, u.length - p - 8) >> 1, f = new Float32Array(n); for (let i = 0; i < n; i++) f[i] = dv.getInt16(p + 8 + i * 2, true) / 32768; data = f; break; } p += 8 + sz + (sz & 1); }
+  return (sampleCache[name] = data ? { sr, data } : null);
+}
+function playSample(out, name, t) {
+  const s = samplePCM(name); if (!s) return false;
+  const buf = AC.createBuffer(1, s.data.length, s.sr); buf.copyToChannel(s.data, 0);
+  const src = AC.createBufferSource(); src.buffer = buf; src.connect(out); src.start(t); return true;
+}
+export const SFX_SAMPLE_NAMES = Object.keys(SFX_SAMPLES);
 let noiseBuf = null;
 function noise() {
   if (!noiseBuf) { noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
@@ -67,7 +83,7 @@ export function sfx(name, opt = {}) {
   if (!audible) return;
   if (!ensure() || AC.state !== 'running') return;
   const g = AC.createGain(); g.gain.value = vol; g.connect(master);
-  try { SYNTH[name](g, AC.currentTime + 0.005 + (opt.delay || 0), opt.dur); } catch (e) { console.warn(e); }
+  try { const tt = AC.currentTime + 0.005 + (opt.delay || 0); if (!(S.sfxSource !== 'synth' && playSample(g, name, tt))) SYNTH[name](g, tt, opt.dur); } catch (e) { console.warn(e); }
   setTimeout(() => g.disconnect(), 3000);
 }
 
@@ -86,7 +102,7 @@ export async function renderSfxOffline(events, duration, sampleRate = 44100) {
     const comp = off.createDynamicsCompressor(); comp.threshold.value = -10; comp.ratio.value = 4; comp.connect(off.destination);
     for (const e of events) {
       const g = off.createGain(); g.gain.value = e.vol; g.connect(comp);
-      try { SYNTH[e.name](g, e.t + 0.005 + (e.delay || 0), e.dur); } catch (err) { console.warn(err); }
+      try { const tt = e.t + 0.005 + (e.delay || 0); if (!(getS().sfxSource !== 'synth' && playSample(g, e.name, tt))) SYNTH[e.name](g, tt, e.dur); } catch (err) { console.warn(err); }
     }
   } finally { AC = saveAC; noiseBuf = saveNoise; }
   return off.startRendering();

@@ -5,8 +5,8 @@ import pathx from 'path';
 import { makePlayableHtml as mph, ALL_FORMATS as AF, CHANNEL_LIMITS as CL } from './index.js';
 import { runChannelSmoke, formatChannelReport } from './responsive-smoke.mjs';
 
-export async function runAllChannelChecks({ baseHtml, toolId, outDir, fixturesDir, defaultHand = '', endSettings = {} }) {
-  const base = { canvasW: 720, canvasH: 1280, h5CtaText: '立即下载' };
+export async function runAllChannelChecks({ baseHtml, toolId, outDir, fixturesDir, defaultHand = '', endSettings = {}, canvasW = 720, canvasH = 1280 }) {
+  const base = { canvasW, canvasH, h5CtaText: '立即下载' };
   const png = (n) => 'data:image/png;base64,' + fsx.readFileSync(pathx.join(fixturesDir, n)).toString('base64');
   const variants = [
     { id: 'default', settings: { ...base }, formats: AF, viewports: null },

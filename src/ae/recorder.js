@@ -48,7 +48,11 @@ export function createAERecorder(api) {
       segs: [], seg: null, sfx: [], events: [], bg: false, dim: [], endBg: [], endCols: null, handImg: null, snaps: [] };
     setSfxHook((name, vol, o, audible) => { if (!R) return; const t = elapsed(); R.events.push([t, name]); if (audible) R.sfx.push({ t, name, vol, delay: (o && o.delay) || 0, dur: o && o.dur }); });
   }
-  function stop() { setSfxHook(null); const r = R; R = null; if (r) r.duration = Math.max(1 / r.fps, (r.f + 1) / r.fps); return r; }
+  function stop() {
+    setSfxHook(null); const r = R; R = null;
+    if (r) { const fi = r.f + 1; r.duration = Math.max(1 / r.fps, fi / r.fps); for (const tr of r.tracks.values()) if (tr.on) { tr.s.push(fi, 0, 0, 1, 1, 0, -1, 1); tr.on = false; } if (r.handOn) { r.hand.push(fi, 0, 0, 0, 1, 1, -1); r.handOn = false; } }
+    return r;
+  }
 
   function orderInsert(key, prevKey) {
     if (R.order.includes(key)) return;
@@ -71,15 +75,15 @@ export function createAERecorder(api) {
         if (!tr) { tr = { key, id: it.id, akey: it.key, A: it.A, s: [], lastF: -2 }; R.tracks.set(key, tr); }
         // 图片被同一帧覆盖（同 id 重复）取最后一个
         if (tr.lastF === fi) { tr.s.length -= 8; }
-        tr.s.push(fi, it.x, it.y, it.sx, it.sy, it.rot || 0, it.a, it.crop); tr.lastF = fi;
+        tr.s.push(fi, it.x, it.y, it.sx, it.sy, it.rot || 0, it.a, it.crop); tr.lastF = fi; tr.on = true;
         tr.ax = it.ax; tr.ay = it.ay;
-      } else if (it.img) { key = it.id + '|img'; let tr = R.tracks.get(key); if (!tr) { tr = { key, id: it.id, img: it.img, s: [], lastF: -2 }; R.tracks.set(key, tr); } tr.s.push(fi, it.x, it.y, it.w, it.h, 0, it.a, 1); tr.lastF = fi; }
+      } else if (it.img) { key = it.id + '|img'; let tr = R.tracks.get(key); if (!tr) { tr = { key, id: it.id, img: it.img, s: [], lastF: -2 }; R.tracks.set(key, tr); } tr.s.push(fi, it.x, it.y, it.w, it.h, 0, it.a, 1); tr.lastF = fi; tr.on = true; }
       else continue;
       seen.add(key); orderInsert(key, prev); prev = key;
     }
     // 手指
     const hs = api.handState();
-    if (hs) { R.hand.push(fi, hs.x, hs.y, hs.rot, hs.sx, hs.sy, hs.alpha); if (!R.handWH) R.handWH = [hs.w, hs.h]; R.handImg = E.IMG.handImage; }
+    if (hs) { R.hand.push(fi, hs.x, hs.y, hs.rot, hs.sx, hs.sy, hs.alpha); R.handOn = true; if (!R.handWH) R.handWH = [hs.w, hs.h]; R.handImg = E.IMG.handImage; }
     // 积木塔 PNG 序列（姿态/相机变化才取一帧）+ 逐块位姿
     const cam = api.camera(), poses = api.poses(), lvKey = E.G ? E.G.n + '#' + E.G.gen : '';
     if (E.G) {
@@ -92,7 +96,8 @@ export function createAERecorder(api) {
       const sc = +E.S.aeTowerScale || 0.5, c = api.towerShot(sc); R.towerSig = sig; R.towerLast = fi; R.towerN++;
       const ent = { f: fi, bytes: null, w: c.width, h: c.height }; R.tower.push(ent); R.pending.push(toBytes(c).then(b => { ent.bytes = b; }));
     }
-    for (const tr of R.tracks.values()) if (!seen.has(tr.key) && tr.lastF === fi - 1) { /* run 结束，导出时按帧连续性切分 */ }
+    for (const tr of R.tracks.values()) if (tr.on && !seen.has(tr.key)) { tr.s.push(fi, 0, 0, 1, 1, 0, -1, 1); tr.on = false; }
+    if (!hs && R.handOn) { R.hand.push(fi, 0, 0, 0, 1, 1, -1); R.handOn = false; }
   }
 
   // ---- 导出 ----
@@ -108,9 +113,14 @@ export function createAERecorder(api) {
     };
     const L = (name, src, o = {}) => ({ name, src, ...o });
     const frameT = f => r4(f / fps);
-    const run = (s, stride) => { // 按帧连续性切分
+    const run = (s, stride) => { // 以“采样序列 + 关闭标记（alpha=-1）”切分连续显示段
       const runs = []; let cur = null;
-      for (let i = 0; i < s.length; i += stride) { const f = s[i]; if (cur && f === cur.f1 + 1) { cur.f1 = f; cur.idx.push(i); } else { cur = { f0: f, f1: f, idx: [i] }; runs.push(cur); } }
+      for (let i = 0; i < s.length; i += stride) {
+        const f = s[i], off = s[i + (stride === 8 ? 6 : 6)] < 0;
+        if (off) { if (cur) { cur.end = f; cur = null; } continue; }
+        if (!cur) { cur = { f0: f, f1: f, end: null, idx: [] }; runs.push(cur); }
+        cur.idx.push(i); cur.f1 = f;
+      }
       return runs;
     };
     const mainLayers = [], mainMarkers = [];
@@ -183,7 +193,7 @@ export function createAERecorder(api) {
         // crop<1 的块：锚点放在左边缘，位置补偿
         let anchor = [ax * cw, ay * ch];
         if (cropped) { anchor = [0, ay * ch]; const k = dispW / cw; for (let q = 0; q < T.length; q++) { const i = rn.idx[q]; P[q * 2] += -ax * cw * tr.s[i + 3] * k * K; } }
-        const endT = Math.min(D, frameT(rn.f1 + 1));
+        const endT = Math.min(D, rn.end != null ? frameT(rn.end) : frameT(rn.f1 + 1));
         lays.push(L(`${tr.id}${lays.length ? ' #' + (lays.length + 1) : ''}`, { asset: aid }, { in: frameT(rn.f0), out: endT, label: tr.id.startsWith('end') ? LABEL.end : LABEL.ui,
           tr: { anchor, position: propOf(T, P, 2, 0.3, a => [r3(a[0]), r3(a[1])]), scale: propOf(T, Sc, 2, 0.3, a => [r3(a[0]), r3(a[1])]), rotation: propOf(T, Ro, 1, 0.2, a => r3(a[0])), opacity: propOf(T, Op, 1, 0.5, a => r3(a[0])) } }));
       }
@@ -198,7 +208,7 @@ export function createAERecorder(api) {
       for (const rn of run(rec.hand, 7)) {
         const T = [], P = [], Sc = [], Ro = [], Op = [];
         for (const i of rn.idx) { const h = rec.hand; T.push(h[i] / fps); P.push(h[i + 1] * K, h[i + 2] * K); Ro.push(h[i + 3]); Sc.push(h[i + 4] * hw / hc.width * 100 * K, h[i + 5] * hh / hc.height * 100 * K); Op.push(h[i + 6] * 100); }
-        mainLayers.push(L(N('手指', 'Hand'), { asset: 'hand' }, { in: frameT(rn.f0), out: Math.min(D, frameT(rn.f1 + 1)), label: LABEL.hand, tr: { anchor: [ax * hc.width, ay * hc.height], position: propOf(T, P, 2, 0.3, a => [r3(a[0]), r3(a[1])]), scale: propOf(T, Sc, 2, 0.3, a => [r3(a[0]), r3(a[1])]), rotation: propOf(T, Ro, 1, 0.2, a => r3(a[0])), opacity: propOf(T, Op, 1, 0.5, a => r3(a[0])) } }));
+        mainLayers.push(L(N('手指', 'Hand'), { asset: 'hand' }, { in: frameT(rn.f0), out: Math.min(D, rn.end != null ? frameT(rn.end) : frameT(rn.f1 + 1)), label: LABEL.hand, tr: { anchor: [ax * hc.width, ay * hc.height], position: propOf(T, P, 2, 0.3, a => [r3(a[0]), r3(a[1])]), scale: propOf(T, Sc, 2, 0.3, a => [r3(a[0]), r3(a[1])]), rotation: propOf(T, Ro, 1, 0.2, a => r3(a[0])), opacity: propOf(T, Op, 1, 0.5, a => r3(a[0])) } }));
       }
     }
     // 音频
