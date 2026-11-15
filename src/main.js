@@ -259,7 +259,7 @@ function boosterLayout() {
 function drawBoosters(now) {
   if (!S.showBoosters) return;
   for (const b of boosterLayout()) {
-    const A = ART.boosterAsset(b.k === 'undo' ? 'undo' : 'lock', S);
+    const A = ART.boosterAsset(b.k, S);
     const press = b.k === 'undo' && UI.undoPress && now - UI.undoPress < 140 ? 0.92 : 1;
     put('booster_' + b.k, A, b.x, b.y, { sx: press });
     if (b.k === 'undo' && G.undoLeft > 0) put('booster_undo_cnt', ART.countBadgeAsset(G.undoLeft), b.x + 38 * U, b.y - 40 * U);
@@ -312,9 +312,11 @@ function drawPanelOverlay(now) {
   if (G.panel === 'end') return;
   ctx.save(); ctx.fillStyle = `rgba(8,18,38,${0.78 * k})`; ctx.fillRect(0, 0, W, H); ctx.restore(); FRAME.items.push({ id: 'dim', dim: 0.78 * k });
   const P = panelRect(), A = G.panel === 'win' ? ART.winPanelAsset(S, G.n, 1, 40) : ART.failPanelAsset(S, G.panel === 'tray' ? 'tray' : 'fell');
+  if (G.panel === 'win') { ctx.save(); ctx.globalAlpha = 0.16 * k; ctx.fillStyle = '#fff'; const cx = W / 2, cy = P.y - P.h * 0.32, R = H; for (let i = 0; i < 9; i++) { const a0 = -Math.PI / 2 + (i - 4.5) * 0.30 + now / 9000, a1 = a0 + 0.13; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R); ctx.lineTo(cx + Math.cos(a1) * R, cy + Math.sin(a1) * R); ctx.closePath(); ctx.fill(); } ctx.restore(); }
+  put('cur', ART.currencyAsset(G.panel === 'win', G.panel === 'win' ? 0 : 1, G.panel === 'win' ? 0 : 80), W / 2, 112 * U, { a: k });
   put('panel', A, P.x, P.y, { sx: 0.6 + 0.4 * easeBack(Math.min(1, el / 380)), a: k });
 }
-function panelRect() { const A = G.panel === 'win' ? ART.PANEL.h : 440, cy = H * 0.5 + (G.panel === 'win' ? 10 : -10) * U, w = ART.PANEL.w * U, h = A * U; return { x: W / 2, y: cy, w, h, bx: W / 2, by: cy + h / 2 - 89 * U, bw: (ART.PANEL.w - 80) * U, bh: 70 * U }; }
+function panelRect() { const win = G.panel === 'win', A = win ? ART.PANEL.h : ART.PANEL.hFail, cy = H * (win ? 0.585 : 0.56), w = ART.PANEL.w * U, h = A * U; return { x: W / 2, y: cy, w, h, bx: W / 2, by: cy + h / 2 - (win ? 98 : 118) * U, bw: (ART.PANEL.w - 96) * U, bh: 104 * U }; }
 function endButtonRect() { return { x: W / 2, y: H * 0.69, w: W * 0.62, h: H * 0.082 }; }
 function endCardState(now) {
   if (G.panel !== 'end') return null; const el = now - G.panelT; return { el, a: Math.min(1, el / 450), icon: 0.85 + 0.15 * easeBack(Math.min(1, el / 500)), pul: 1 + 0.04 * Math.sin(el / 160) };
@@ -346,7 +348,7 @@ function fromPlank(bs) { let r = bs.ang; if (r > Math.PI / 2) r -= Math.PI; if (
 
 async function pullAnim(id, gen, frac = 1) {
   const m = SC.meshes[id], b = LV.blocks[id];
-  SC.setOutline(id, false); SC.setGhost(id, S.ghostAlpha); sfx('Pull');
+  SC.setOutline(id, false); SC.setGhost(id, S.ghostAlpha); sfx('Pull', { delay: S.pullSfxDelay });
   const bs0 = SC.blockScreen(id), sign = bs0.e1.y >= bs0.e2.y ? 1 : -1;
   const dx = Math.cos(b.yaw) * sign, dz = -Math.sin(b.yaw) * sign, slide = S.pullSlide * b.len;
   G.pulling.add(id); spawnDebris(bs0.x, bs0.y, b.color, S.debrisCount);
@@ -364,7 +366,7 @@ function arriveCrate(ev, quiet = false) {
   const v = ensureCrate(ev.cid), b = LV.blocks[ev.b];
   if (!G.view.vq.includes(ev.cid) && !G.crateDone.has(ev.cid)) G.view.vq.push(ev.cid);
   v.items[ev.slot] = ev.b; (v.itemT = v.itemT || [])[ev.slot] = performance.now(); G.shown = (G.shown || 0) + 1; G.crateArrivals++;
-  sfx('Crate'); if (S.showPlusOne) { const sp = crateSlotPos(v, ev.slot); floater('+1', sp.x + 14 * U, sp.y - 30 * U, { size: 34, dur: 800, vy: -50 }); }
+  if (!ev.preSfx) sfx('Crate'); if (S.showPlusOne) { const sp = crateSlotPos(v, ev.slot); floater('+1', sp.x + 14 * U, sp.y - 30 * U, { size: 34, dur: 800, vy: -50 }); }
   updateStatus();
   if (!quiet && G.crateArrivals % Math.max(1, S.comboEvery) === 0) comboWord();
 }
@@ -380,6 +382,7 @@ async function playEvents0(id, ev, gen) {
   const main = ev[0];
   if (main && main.t === 'crate') {
     const v = ensureCrate(main.cid); if (!G.view.vq.includes(main.cid) && !G.crateDone.has(main.cid)) G.view.vq.push(main.cid);
+    main.preSfx = true; setTimeout(() => { if (gen === G.gen) sfx('Crate'); }, Math.max(0, S.flyMs - S.crateSfxLead));
     await flight(from, () => { const p = crateSlotPos(v, main.slot, false); return { x: p.x, y: p.y, w: 46 * 0.86 * p.s * U * 1.0, h: 70 * 0.86 * p.s * U, tw: 46 * 0.86 * p.s * U, th: 70 * 0.86 * p.s * U }; }, b.color);
     if (gen !== G.gen) return; arriveCrate(main);
   } else if (main && main.t === 'tray') {
@@ -687,7 +690,7 @@ function frameBody() {
     ctx.drawImage(glCanvas, 0, 0, W, H); FRAME.tower = FRAME.items.length; FRAME.items.push({ id: 'tower', tower: true });
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (!G.panel || G.panel !== 'end') {
-      drawHud(now); drawCrates(now); drawTray(now); drawBoosters(now);
+      if (!(G.panel === 'win' || G.panel === 'fail' || G.panel === 'tray')) drawHud(now); drawCrates(now); drawTray(now); drawBoosters(now);
       drawTips(now); drawParts(now); drawFlights(now); drawFloaters(now);
       drawPanelOverlay(now);
     }

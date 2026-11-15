@@ -23,7 +23,7 @@ export const DEFAULTS = {
   hudColor: '#4c2a10', barColor: '#5ad34a', gearColor: '#f6a02c', crateScale4: 0.78, crateSlideMs: 380, tipMs: 3200, hudShow: true, showTray: true, showBoosters: true,
   winTitle: 'Level Complete!', winButton: 'Next Level', failTitle: 'Tower Fell!', failText: 'Take back the last pull. Free this time!', failButton: 'Play On - Free', trayTitle: 'Tray Full!', trayText: 'No room left on the tray.',
   // 动画
-  pullSlide: 0.95, pullMs: 210, flyMs: 340, flyArc: 0.2, flyScale: 1.0, crateFullMs: 520, popScale: 1.18, rewindMs: 850, collapseGraceMs: 2300, popupMs: 1400, shakeOnFall: 6,
+  pullSlide: 0.95, pullMs: 250, flyMs: 380, pullSfxDelay: 0.15, crateSfxLead: 125, flyArc: 0.2, flyScale: 1.0, crateFullMs: 520, popScale: 1.18, rewindMs: 850, collapseGraceMs: 2300, popupMs: 1400, shakeOnFall: 6,
   // 物理（倒塌动画）
   gravity: 24, friction: 0.55, restitution: 0.05, collapseKick: 0.7, collapseZoom: 0.52, linDamp: 0.05, angDamp: 0.1,
   // 粒子
@@ -127,7 +127,7 @@ export const SCHEMA = [
     T('trayTitle', '托盘满标题', { kind: 'art' }), T('trayText', '托盘满说明', { kind: 'art' }),
   ]},
   { group: '动画', items: [
-    R('pullSlide', '拔出滑动距离(积木长度比例)', 0.2, 1.4, 0.05), R('pullMs', '拔出时长(ms)', 60, 800, 10), R('flyMs', '飞行时长(ms，视频≈300)', 100, 1200, 10), R('flyArc', '飞行弧度', 0, 0.8, 0.01), R('flyScale', '飞行最大放大', 0.6, 2, 0.05),
+    R('pullSlide', '拔出滑动距离(积木长度比例)', 0.2, 1.4, 0.05), R('pullMs', '拔出时长(ms)', 60, 800, 10), R('pullSfxDelay', '“拔出”音效相对点击延迟(s，参考视频 0.15)', 0, 0.5, 0.01), R('crateSfxLead', '“入箱”音效提前量(ms，使撞击声对齐落箱)', 0, 300, 5), R('flyMs', '飞行时长(ms，视频≈300)', 100, 1200, 10), R('flyArc', '飞行弧度', 0, 0.8, 0.01), R('flyScale', '飞行最大放大', 0.6, 2, 0.05),
     R('crateFullMs', '木箱满箱脉冲时长(ms)', 100, 1500, 10), R('popScale', '满箱脉冲放大', 1, 1.6, 0.01), R('rewindMs', '撤销回放时长(ms)', 100, 2500, 50),
     R('collapseGraceMs', '倒塌多久后弹失败面板(ms)', 500, 6000, 100), R('popupMs', '赞美词/飘字停留(ms)', 300, 3000, 50), R('shakeOnFall', '倒塌时屏幕震动(px)', 0, 30, 1),
   ]},
