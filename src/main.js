@@ -7,7 +7,8 @@ import { createAERecorder } from './ae/recorder.js';
 import { export3D } from './export3d/export3d.js';
 import { exportH5PlayableFromPage, applyPlayableMode, isPlayableNoHand, applyH5DevicePresetToSettings, markH5DeviceCustomIfSizeEdited, bindEditorDevicePreview } from './h5/index.js';
 import { DEFAULT_HAND as __H5_DEFAULT_HAND } from './default_hand.js';
-import { makeLevel, newState, cloneState, applyPull, pullOutcome, criticalSet, solve, matchCrate, PALETTE, LEVELS } from './core.js';
+import { makeLevel, newState, cloneState, applyPull, pullOutcome, criticalSet, solve, matchCrate, PALETTE, LEVELS, CUSTOM, CUSTOM_DRAFT_N, customDefFor } from './core.js';
+import { createBuilder, loadCustomList } from './builder.js';
 import * as ART from './art.js';
 import { createScene } from './scene3d.js';
 import * as THREE from 'three';
@@ -24,11 +25,12 @@ function loadSettings() {
   } catch (e) { return { ...DEFAULTS, ...themeDefaults(DEFAULTS, DEFAULTS.theme) }; }
 }
 let saveTimer = 0;
+let CUSTOM_SAVE = null; // 试玩自定义关卡时临时覆盖的设置（离开自定义关卡时恢复，且不写入本地存储）
 function saveSettings() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => { saveTimer = 0; try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) { toast('本地保存失败（图片可能过大），请用“导出设置”保存'); } }, 300);
+  saveTimer = setTimeout(() => { saveTimer = 0; try { localStorage.setItem(LS_KEY, JSON.stringify(CUSTOM_SAVE ? { ...S, ...CUSTOM_SAVE } : S)); } catch (e) { toast('本地保存失败（图片可能过大），请用“导出设置”保存'); } }, 300);
 }
-window.addEventListener('pagehide', () => { if (!saveTimer) return; clearTimeout(saveTimer); try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) { } });
+window.addEventListener('pagehide', () => { if (!saveTimer) return; clearTimeout(saveTimer); try { localStorage.setItem(LS_KEY, JSON.stringify(CUSTOM_SAVE ? { ...S, ...CUSTOM_SAVE } : S)); } catch (e) { } });
 
 // ---------------- DOM / 画布 ----------------
 const $ = s => document.querySelector(s);
@@ -92,6 +94,9 @@ function newGame(keepSeed = true, n = null) {
 }
 function buildGame(num) {
   dropTweens(); const gen = (G ? G.gen : 0) + 1;
+  { const cd = num >= CUSTOM_DRAFT_N ? customDefFor(num) : null;
+    if (cd) { if (!CUSTOM_SAVE) CUSTOM_SAVE = { crateCap: S.crateCap, visibleCrates: S.visibleCrates, trayCap: S.trayCap }; S.crateCap = cd.cap || 3; S.visibleCrates = cd.visible || 4; S.trayCap = cd.trayCap || 5; }
+    else if (CUSTOM_SAVE) { Object.assign(S, CUSTOM_SAVE); CUSTOM_SAVE = null; } }
   ART.setPalette(S);
   LV = makeLevel(S, num); ST = newState(LV);
   SC.build(LV, S); SC.present = ST.present;
@@ -103,13 +108,13 @@ function buildGame(num) {
     fullFlash: [], endShown: false, introT0: performance.now(), wonT: 0, tapped: false, swiped: false, failed: 0,
   };
   for (const cid of G.view.vq) ensureCrate(cid, false);
-  UI.yawBase = (() => { const a = String(S.startYaws || '').split(',').map(parseFloat)[(G ? G.n : 1) - 1]; return (isFinite(a) ? a : S.startYaw) * Math.PI / 180; })(); SC.setYaw(UI.yawBase); UI.zoom = 1;
+  UI.yawBase = (() => { const a = LV.def.custom ? (LV.def.yaw == null ? NaN : +LV.def.yaw) : String(S.startYaws || '').split(',').map(parseFloat)[(G ? G.n : 1) - 1]; return (isFinite(a) ? a : S.startYaw) * Math.PI / 180; })(); SC.setYaw(UI.yawBase); UI.zoom = 1;
   G.topH = Math.max(...LV.blocks.map(b => b.y + b.hgt / 2));
   refit(true);
   if (S.showHints && LV.def.hint) setTimeout(() => { if (G && G.gen === gen && !G.tapped) showTip(LV.def.hint); }, 500);
   if (S.tutorialHighlight && num === 1 && LV.solution) SC.setOutline(LV.solution[0], true, S.highlightColor);
   G.tutId = S.tutorialHighlight && num === 1 && LV.solution ? LV.solution[0] : -1;
-  updateStatus(); updateButtons();
+  updateStatus(); updateButtons(); if (typeof refreshLevelSelect === 'function') { try { refreshLevelSelect(); } catch (e) { } }
 }
 function levelZoom() { const z = String(S.levelZoom || '').split(',').map(parseFloat)[G.n - 1]; return isFinite(z) && z > 0 ? z : 1; }
 function refit(force) {
@@ -459,7 +464,7 @@ function onWin() {
   for (const cid of G.view.vq.slice()) { const v = G.view.crates.get(cid); if (v && !v.leaving) { v.leaving = true; v.lt0 = performance.now(); } G.crateDone.add(cid); } G.view.vq = []; G.clearT = performance.now(); sfx('Win'); updateStatus();
   floater('Level Complete!', W / 2, tY(760), { size: 74, grad: ['#fff2a0', '#ffb81c'], stroke: '#5a2a0a', dur: 2600, vy: -20 });
   if (S.confettiOnWin) rainConfetti(Math.round(S.confettiCount * 1.6));
-  const gen = G.gen, last = S.endAfterLevels > 0 && G.n >= S.endAfterLevels && S.endCard;
+  const gen = G.gen, last = S.endAfterLevels > 0 && G.n < CUSTOM_DRAFT_N && G.n >= S.endAfterLevels && S.endCard;
   setTimeout(() => {
     if (!G || G.gen !== gen) return;
     if (last) { G.panel = 'end'; G.panelT = performance.now(); G.endShown = true; sfx('Win'); }
@@ -472,7 +477,7 @@ function onWin() {
     setTimeout(() => { if (REC.rec === rr) stopRecording(); }, wait);
   }
 }
-function nextLevel() { buildGame(G.n + 1); }
+function nextLevel() { if (G.n >= CUSTOM_DRAFT_N) buildGame(G.n > CUSTOM_DRAFT_N && G.n < CUSTOM_DRAFT_N + CUSTOM.list.length ? G.n + 1 : G.n); else buildGame(G.n + 1); }
 // 撤销 / 回放
 async function undoTo(snap, free = false) {
   if (!snap || G.rewinding) return;
@@ -903,7 +908,25 @@ function updateAEButtons() {
   b.textContent = AE.active() ? `■ 停止并导出（${AE.elapsed().toFixed(1)}s）` : '● 开始记录'; b.classList.toggle('on', AE.active());
 }
 
+// ---- 选关 + 关卡搭建器 ----
+CUSTOM.list = loadCustomList();
+function refreshLevelSelect() {
+  const sel = $('#levelSel'); if (!sel) return; const cur = G ? G.n : 1; sel.replaceChildren();
+  for (let i = 1; i <= 5; i++) sel.append(new Option('第 ' + i + ' 关', String(i)));
+  CUSTOM.list.forEach((o, i) => sel.append(new Option('★ ' + o.name, String(CUSTOM_DRAFT_N + 1 + i))));
+  if (cur === CUSTOM_DRAFT_N && CUSTOM.draft) sel.append(new Option('✎ 试玩中：' + CUSTOM.draft.name, String(CUSTOM_DRAFT_N)));
+  sel.value = String(cur);
+}
+const BUILDER = createBuilder({
+  get S() { return S; },
+  play(def, n) { const d = JSON.parse(JSON.stringify(def)); if (n === CUSTOM_DRAFT_N) CUSTOM.draft = d; else CUSTOM.list[n - CUSTOM_DRAFT_N - 1] = Object.assign(CUSTOM.list[n - CUSTOM_DRAFT_N - 1] || {}, d); stopAuto(true); newGame(true, n); },
+  onListChange() { refreshLevelSelect(); },
+  toast,
+});
+$('#btnBuilder').onclick = () => BUILDER.open();
+$('#levelSel').onchange = e => { stopAuto(true); newGame(true, +e.target.value); };
 window.__app = {
+  BUILDER, refreshLevelSelect,
   setTheme, resetTheme, THEMES, get theme() { return S.theme; }, AE, aeStart, aeStopAndExport, aeExport, export3DZip, exportH5Zip, get aeLastRec() { return aeLastRec; },
   get S() { return S; }, get G() { return G; }, get LV() { return LV; }, get ST() { return ST; }, get HAND() { return HAND; }, get AUTO() { return AUTO; }, get REC() { return REC; }, SC, THREE,
   setSetting(k, v) { const it = SCHEMA.flatMap(g => g.items).find(i => i.k === k); if (it) { onSetting(it, v); syncPanel(); } else S[k] = v; },
@@ -921,6 +944,6 @@ const __h5 = applyPlayableMode({
 });
 if (__h5) { try { const panel = document.getElementById('panel'); if (panel) panel.style.display = 'none'; } catch (e) { } }
 if (!__h5) bindEditorDevicePreview(() => S);
-buildPanel(); drawHandPreview(); setResolution(); resetHand(); newGame(true); renderRecList(); updateButtons();
+buildPanel(); drawHandPreview(); setResolution(); resetHand(); newGame(true); renderRecList(); updateButtons(); refreshLevelSelect();
 requestAnimationFrame(frame);
 loadFonts().then(() => { window.__fontsReady = true; ART.clearArt(); if (G) { G.fitKey = null; } });

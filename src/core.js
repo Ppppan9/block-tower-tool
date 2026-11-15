@@ -79,6 +79,65 @@ function insideMargin(h, p) {
   return m;
 }
 
+// ---------- 自定义关卡（关卡搭建器） ----------
+// def: { name, layers:[{ colors:[...], orient:'auto'|'x'|'z', twist:度 }]（自下而上）, crates:[颜色...]（队列顺序）, cap, visible, trayCap, yaw, scale, hgtScale }
+export const CUSTOM = { list: [], draft: null };
+export const CUSTOM_DRAFT_N = 100;
+export const isCustomN = n => n >= 100;
+export function customDefFor(n) { return n === CUSTOM_DRAFT_N ? CUSTOM.draft : (CUSTOM.list[n - CUSTOM_DRAFT_N - 1] || null); }
+export function customShapes(def, D = DIM) {
+  const out = [], hg = D.hgt;
+  def.layers.forEach((ly, L) => {
+    const n = Math.max(1, Math.min(4, ly.colors.length)), odd = ly.orient === 'x' ? false : ly.orient === 'z' ? true : L % 2 === 1;
+    const wid = n === 3 ? D.wid : (3 * D.pitch) / n - 0.02, twist = (ly.twist || 0) * Math.PI / 180;
+    for (let i = 0; i < n; i++) {
+      const off = (i - (n - 1) / 2) * (n === 3 ? D.pitch : wid + 0.02);
+      let x = odd ? off : 0, z = odd ? 0 : off; const yaw = (odd ? Math.PI / 2 : 0) + twist;
+      if (twist) { const c = Math.cos(twist), s2 = Math.sin(twist); const nx = x * c + z * s2, nz = -x * s2 + z * c; x = nx; z = nz; }
+      out.push({ layer: L, x, z, yaw, len: D.len, wid, hgt: hg, y: L * hg + hg / 2, color: ly.colors[i] });
+    }
+  });
+  return out;
+}
+export function applyDimFor(S, def) {
+  const k = def.scale > 0 ? def.scale : 1, hk = def.hgtScale > 0 ? def.hgtScale : 1;
+  DIM.len = S.blockLen * k; DIM.wid = S.blockWid * k; DIM.hgt = S.blockHgt * k * hk; DIM.stumpR = S.stumpR; DIM.pitch = DIM.wid + 0.02 * k;
+}
+export function customBlocks(S, def) {
+  applyDimFor(S, def);
+  return customShapes(def).map((s, i) => ({ ...s, id: i, sym: (PALETTE[s.color] || PALETTE.red).sym }));
+}
+// 校验：返回 {counts:{色:{blocks,need}}, total, need, stable, items:[{lv:'ok|warn|err',t}] }（不含可解性，可解性另算）
+export function validateCustom(S, def) {
+  const items = [], cap = def.cap || 3, blocks = customBlocks(S, def), blk = {}, need = {};
+  for (const b of blocks) blk[b.color] = (blk[b.color] || 0) + 1;
+  for (const c of def.crates) need[c] = (need[c] || 0) + cap;
+  const cols = [...new Set([...Object.keys(blk), ...Object.keys(need)])], counts = {};
+  for (const c of cols) counts[c] = { blocks: blk[c] || 0, need: need[c] || 0 };
+  const total = blocks.length, tot2 = def.crates.length * cap;
+  if (!blocks.length) items.push({ lv: 'err', t: '塔上还没有积木' });
+  if (total !== tot2) items.push({ lv: 'err', t: `积木总数 ${total} ≠ 木箱容量合计 ${def.crates.length}×${cap}=${tot2}` });
+  for (const c of cols) if (counts[c].blocks !== counts[c].need) items.push({ lv: 'err', t: `${(PALETTE[c] || {}).name || c}色：积木 ${counts[c].blocks} 块，木箱需要 ${counts[c].need} 块` });
+  const stable = blocks.length ? stability(blocks, blocks.map(() => true)) : { ok: true };
+  if (!stable.ok) items.push({ lv: 'err', t: '初始塔不稳（会直接倒塌）：' + (stable.why === 'gap' ? `第 ${stable.layer + 1} 层是空的` : stable.why === 'off-stump' ? '有积木悬在树桩外' : '重心超出支撑面') });
+  if (def.layers.some(l => l.colors.length > 4)) items.push({ lv: 'warn', t: '每层最多 4 块' });
+  if (def.crates.length < (def.visible || 4)) items.push({ lv: 'warn', t: `木箱总数 ${def.crates.length} 少于同屏显示数 ${def.visible || 4}` });
+  return { counts, total, need: tot2, stable, items };
+}
+export function solveCustom(S, def, nodes = 60000) {
+  const blocks = customBlocks(S, def), cap = def.cap || 3;
+  const lv = { def: { custom: true }, seed: 1, attempt: 0, blocks, crates: def.crates.map(c => ({ color: c, sym: (PALETTE[c] || PALETTE.red).sym })), opt: { cap, trayCap: def.trayCap || 5, vis: def.visible || 4 } };
+  const t0 = Date.now(); const sol = solve(lv, nodes); return { ok: !!sol, steps: sol ? sol.length : 0, ms: Date.now() - t0 };
+}
+function buildCustomLevel(def, opt) {
+  const cap = def.cap || opt.crateCap || 3, trayCap = def.trayCap || opt.trayCap || 5, vis = def.visible || opt.visible || 4;
+  const blocks = customShapes(def).map((s, i) => ({ ...s, id: i, sym: (PALETTE[s.color] || PALETTE.red).sym }));
+  const lv = { def, seed: 1, attempt: 0, blocks, crates: def.crates.map(c => ({ color: c, sym: (PALETTE[c] || PALETTE.red).sym })), opt: { cap, trayCap, vis } };
+  lv.unstable = blocks.length ? !stability(blocks, blocks.map(() => true)).ok : true;
+  lv.solution = lv.unstable ? null : solve(lv, 60000);
+  return lv;
+}
+
 // ---------- 布局 ----------
 // 返回无颜色的积木位姿列表：{layer, x, z, yaw, len, wid, hgt, y}
 export function layoutShapes(def) {
@@ -139,6 +198,7 @@ export function criticalSet(blocks, present, margin) {
 // ---------- 关卡生成 ----------
 // 从关卡定义 + 种子生成带颜色的积木列表（保证有解：求解器验证，不行就换排布）
 export function buildLevel(def, seed = 1, opt = {}) {
+  if (def.custom) return buildCustomLevel(def, opt);
   const cap = opt.crateCap || 3, trayCap = opt.trayCap || 5, vis = opt.visible || 4;
   let shapes = layoutShapes(def);
   // 木箱队列
@@ -253,6 +313,7 @@ export function solve(lv, maxNodes = 40000, from = null, order = 'safe', seed = 
 
 // ---------- 设置 → 关卡 ----------
 export function levelDef(S, n) {
+  if (n >= CUSTOM_DRAFT_N) { const d = customDefFor(n); if (d) return { id: n, custom: true, name: d.name, layers: d.layers, crates: d.crates, cap: d.cap, visible: d.visible, trayCap: d.trayCap, yaw: d.yaw, scale: d.scale, hgtScale: d.hgtScale, per: 3, style: 'jenga', hint: '' }; }
   if (!S.customLevel) { const d = LEVELS[(n - 1) % LEVELS.length]; return { ...d, id: n }; }
   const cols = String(S.customColors || 'red,yellow,blue').split(',').map(x => x.trim()).filter(x => PALETTE[x]); if (!cols.length) cols.push('red', 'blue');
   const cap = S.crateCap || 3, per = S.customPer || 3, layers = S.customLayers || 8;
@@ -262,6 +323,7 @@ export function levelDef(S, n) {
 }
 export function makeLevel(S, n) {
   const def = levelDef(S, n);
+  if (def.custom) { applyDimFor(S, def); return buildLevel(def, 1, { crateCap: S.crateCap, trayCap: S.trayCap, visible: S.visibleCrates }); }
   const ks = String(S.blockScales || '').split(',').map(x => parseFloat(x)), k = (isFinite(ks[n - 1]) && ks[n - 1] > 0 ? ks[n - 1] : (S.blockScaleDefault || 1));
   DIM.len = S.blockLen * k; DIM.wid = S.blockWid * k; const hs = String(S.hgtScales || '').split(',').map(x => parseFloat(x)), hk = isFinite(hs[n - 1]) && hs[n - 1] > 0 ? hs[n - 1] : 1; DIM.hgt = S.blockHgt * k * hk; DIM.stumpR = S.stumpR; DIM.pitch = DIM.wid + 0.02 * k;
   return buildLevel(def, (S.seed || 1) + n * 17, { crateCap: S.crateCap, trayCap: S.trayCap, visible: S.visibleCrates });
