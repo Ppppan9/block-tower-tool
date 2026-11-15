@@ -32,4 +32,7 @@ npm run compare    # 生成与参考视频的对照图 → ../out/blocks-compare
 结构：`src/core.js`（关卡生成 / 稳定性 / 求解器 / 规则）、`src/scene3d.js`（three.js 场景 + cannon-es 倒塌）、`src/art.js`（2D 素材）、`src/main.js`（HUD / 动画 / 输入 / 自动通关 / 面板 / 导出）。
 
 ## 与参考视频的差异
-见发布说明；HUD 小图标和熊猫吉祥物为程序绘制近似，音效为 WebAudio 合成。
+- 已对齐：HUD 布局（等级条/齿轮/4 个木箱/5 格托盘/底部道具）、塔-树桩比例与取景（高塔拉远）、木纹积木 + 符号、木箱直入 / 托盘规则、满箱彩带与队列滑动、提示气泡、Tower Fell! / Level Complete 面板、5 关数据；音效 Tap/Pull/Crate/Win 取自参考视频音轨片段（其余为合成，可在设置切「全部合成」）。
+- 近似：L4 扭转层是对截图的推断；熊/吉祥物、道具图标、气泡为程序绘制；倒塌用 cannon-es 物理（只有承重块以上的部分明显散落，不如视频里整塔飞散夸张）；各关积木缩放 / 取景为按截图测得的经验值（设置里可调）。
+- 不含：Meta 木工坊界面、FBX（只导 glb，可在 Blender 转 FBX）；AE 里的积木塔是预渲染透明 PNG 序列，不是 AE 原生 3D。
+- 对照图脚本：`npm run compare`（输出 `/workspace/out/blocks-compare-*.png`）。
