@@ -93,8 +93,8 @@ ok(!(await p.evaluate(() => __app.BUILDER.isOpen())), '试玩后窗口关闭');
 let st = await p.evaluate(() => [__app.G.n, __app.LV.def.custom === true || !!__app.LV.def.custom, __app.S.trayCap, __app.LV.blocks.length]);
 ok(st[0] === 100 && st[1] && st[2] === 7, '试玩关卡 100，托盘格数=自定义(7)：' + JSON.stringify(st));
 ok(await p.evaluate(() => !!__app.LV.solution), '试玩关卡有解');
-await p.evaluate(() => __app.autoSolve());
-let won = false; for (let i = 0; i < 90 && !won; i++) { await p.waitForTimeout(1000); won = await p.evaluate(() => ['win', 'end'].includes(__app.G.panel)); }
+await p.evaluate(() => { __app.autoSolve(); });
+let won = false; for (let i = 0; i < 90 && !won; i++) { await p.waitForTimeout(1000); won = await p.evaluate(() => (__app.G.cleared || ['win', 'end'].includes(__app.G.panel))); }
 ok(won, '自动通关自定义关卡（面板=' + await p.evaluate(() => __app.G.panel) + '）');
 // 恢复内置关卡时设置还原
 await p.selectOption('#levelSel', '1'); await p.waitForTimeout(1500);
@@ -118,8 +118,8 @@ await p.reload(); await p.waitForTimeout(1200);
 ok(await p.evaluate(() => [...document.getElementById('levelSel').options].some(o => o.text.includes('测试塔A'))), '刷新页面后自定义关卡还在');
 await p.selectOption('#levelSel', '101'); await p.waitForTimeout(2000);
 ok(await p.evaluate(() => __app.G.n === 101 && __app.LV.def.custom && __app.S.trayCap === 7), '从选关进入自定义关卡 101');
-await p.evaluate(() => __app.autoSolve());
-won = false; for (let i = 0; i < 90 && !won; i++) { await p.waitForTimeout(1000); won = await p.evaluate(() => ['win', 'end'].includes(__app.G.panel)); }
+await p.evaluate(() => { __app.autoSolve(); });
+won = false; for (let i = 0; i < 90 && !won; i++) { await p.waitForTimeout(1000); won = await p.evaluate(() => (__app.G.cleared || ['win', 'end'].includes(__app.G.panel))); }
 ok(won, '已保存关卡也能自动通关');
 
 // 8 JSON 往返

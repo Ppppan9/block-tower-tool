@@ -468,7 +468,7 @@ function onWin() {
   setTimeout(() => {
     if (!G || G.gen !== gen) return;
     if (last) { G.panel = 'end'; G.panelT = performance.now(); G.endShown = true; sfx('Win'); }
-    else if (S.winPanel) { G.panel = 'win'; G.panelT = performance.now(); }
+    else if (S.winPanel || (G.n >= CUSTOM_DRAFT_N && !(G.n > CUSTOM_DRAFT_N && G.n < CUSTOM_DRAFT_N + CUSTOM.list.length))) { G.panel = 'win'; G.panelT = performance.now(); }
     else nextLevel();
     updateStatus();
   }, last ? S.endDelay + 1500 : 1700);
