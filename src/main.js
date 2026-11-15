@@ -103,7 +103,7 @@ function buildGame(num) {
     fullFlash: [], endShown: false, introT0: performance.now(), wonT: 0, tapped: false, swiped: false, failed: 0,
   };
   for (const cid of G.view.vq) ensureCrate(cid, false);
-  UI.yawBase = S.startYaw * Math.PI / 180; SC.setYaw(UI.yawBase); UI.zoom = 1;
+  UI.yawBase = (() => { const a = String(S.startYaws || '').split(',').map(parseFloat)[(G ? G.n : 1) - 1]; return (isFinite(a) ? a : S.startYaw) * Math.PI / 180; })(); SC.setYaw(UI.yawBase); UI.zoom = 1;
   G.topH = Math.max(...LV.blocks.map(b => b.y + b.hgt / 2));
   refit(true);
   if (S.showHints && LV.def.hint) setTimeout(() => { if (G && G.gen === gen && !G.tapped) showTip(LV.def.hint); }, 500);

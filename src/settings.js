@@ -18,7 +18,7 @@ export const DEFAULTS = {
   stumpR: 2.5, stumpTop: '#fff1cb', stumpRing: '#f5c994', stumpBark: '#fdb47f', stumpBarkDark: '#c4926c', stumpCracks: true, mushroom: true, sprout: true,
   bgTop: '#4fb7ef', bgMid: '#9dd7f6', bgBottom: '#e4f5fd', bgGlow: 0.25, shadowStrength: 0.38, shadowSoft: 3, lightIntensity: 0.8, ambient: 2.3, exposure: 1.28, lightAngle: 40,
   // 镜头
-  camElev: 24, camFov: 22, fitMargin: 0.045, fitTall: 4.9, levelZoom: '1,1,1,1,1', stumpWidths: '0.9,0.9,0.8,1.05,0.62', blockScales: '1.0,1.0,0.95,0.7,0.85', blockScaleDefault: 0.75, towerY: 0.72, zoomMin: 0.6, zoomMax: 2.2, rotateSpeed: 0.8, idleSpin: 0, startYaw: 22, zoomIntro: true, introZoom: 1.55, introMs: 1100,
+  camElev: 24, camFov: 22, fitMargin: 0.045, fitTall: 4.9, levelZoom: '1,1,1,1,1', stumpWidths: '0.9,0.9,0.8,1.05,0.62', blockScales: '1.0,1.0,0.95,0.7,0.85', blockScaleDefault: 0.75, towerY: 0.72, zoomMin: 0.6, zoomMax: 2.2, rotateSpeed: 0.8, idleSpin: 0, startYaw: 22, startYaws: '160,94,160,8,-15', zoomIntro: true, introZoom: 1.55, introMs: 1100,
   // 界面
   hudColor: '#4c2a10', barColor: '#5ad34a', gearColor: '#f6a02c', crateScale4: 0.78, crateSlideMs: 380, tipMs: 3200, hudShow: true, showTray: true, showBoosters: true,
   winTitle: 'Level Complete!', winButton: 'Next Level', failTitle: 'Tower Fell!', failText: 'Take back the last pull. Free this time!', failButton: 'Play On - Free', trayTitle: 'Tray Full!', trayText: 'No room left on the tray.',
@@ -116,7 +116,7 @@ export const SCHEMA = [
   { group: '镜头 / 操作', items: [
     R('camElev', '俯视角度(度)', 10, 70, 1), R('camFov', '视场角', 10, 50, 1), R('fitMargin', '树桩最大宽度边距', 0, 0.3, 0.01), R('fitTall', '高塔取景：树桩宽度×塔高 ≤ 此值', 2, 9, 0.1), R('towerY', '塔底在画面中的纵向位置', 0.5, 0.9, 0.01),
     R('zoomMin', '最小缩放', 0.3, 1, 0.05), R('zoomMax', '最大缩放', 1, 4, 0.05), R('rotateSpeed', '滑动旋转灵敏度', 0.2, 2, 0.05), R('idleSpin', '空闲自转(度/秒)', 0, 40, 1),
-    R('startYaw', '初始旋转角(度)', -180, 180, 1),
+    R('startYaw', '初始旋转角(度)', -180, 180, 1), T('startYaws', '各关初始旋转角（逗号分隔，空项用上面的值）'),
     B('zoomIntro', '关卡开始时镜头由近拉远'), R('introZoom', '开场拉远起始倍数', 1, 3, 0.05), R('introMs', '开场拉远时长(ms)', 0, 3000, 50),
   ]},
   { group: '界面 / 弹窗', items: [
