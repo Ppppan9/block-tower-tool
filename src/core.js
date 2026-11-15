@@ -19,7 +19,7 @@ export const LEVELS = [
   { id: 1, layers: 4, per: 3, style: 'jenga', crates: ['red', 'yellow', 'blue', 'red', 'red', 'yellow', 'blue', 'red'].slice(0, 4), counts: { red: 6, yellow: 3, blue: 3 }, hint: 'Pull a plank into its crate!', undoUnlock: false },
   { id: 2, layers: 6, per: 3, style: 'jenga', crates: ['blue', 'green', 'green', 'blue', 'red', 'red'], hint: 'Some planks hold the tower: pull with care!' },
   { id: 3, layers: 10, per: 3, style: 'jenga', crates: ['orange', 'orange', 'orange', 'orange', 'green', 'green', 'orange', 'green', 'green', 'green'], hint: 'This plank holds the tower!' },
-  { id: 4, layers: 6, per: 4, style: 'twist', crates: ['green', 'green', 'green', 'purple', 'red', 'purple', 'red', 'purple'], hint: "Mixed floors: keep the tower's center supported!" },
+  { id: 4, layers: 8, per: 3, style: 'twist', crates: ['green', 'green', 'green', 'purple', 'red', 'purple', 'red', 'purple'], hint: "Mixed floors: keep the tower's center supported!" },
   { id: 5, layers: 13, per: 3, style: 'jenga', crates: ['green', 'green', 'orange', 'orange', 'blue', 'green', 'orange', 'blue', 'green', 'orange', 'blue', 'blue', 'orange'], hint: 'Spread two fingers to zoom in' },
 ];
 LEVELS[0].crates = ['red', 'yellow', 'blue', 'red'];
@@ -76,7 +76,7 @@ export function layoutShapes(def) {
   const out = [], D = DIM, per = def.per, hg = D.hgt, wid = per === 3 ? D.wid : (3 * D.pitch) / per - 0.02;
   for (let L = 0; L < def.layers; L++) {
     const odd = L % 2 === 1;
-    const twist = def.style === 'twist' ? [0, 0.30, -0.26, 0.38, -0.2, 0.32, -0.34][L % 7] : 0;
+    const twist = def.style === 'twist' ? [0, 0.1, -0.06, 0.2, -0.1, 0.16, -0.22, 0.08][L % 8] : 0;
     for (let i = 0; i < per; i++) {
       const off = (i - (per - 1) / 2) * (per === 3 ? D.pitch : wid + 0.02);
       // 未旋转时：偶数层长边沿 x、块沿 z 排列；奇数层相反
