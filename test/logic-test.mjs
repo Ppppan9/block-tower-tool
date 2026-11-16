@@ -1,8 +1,15 @@
 // 核心逻辑测试（纯 Node）：生成 / 稳定性 / 求解器 / 规则
-import { LEVELS, makeLevel, newState, cloneState, applyPull, pullOutcome, criticalSet, solve, visibleCrates, matchCrate } from '../src/core.js';
+import { LEVELS, makeLevel, newState, cloneState, applyPull, pullOutcome, criticalSet, solve, visibleCrates, matchCrate, activeCrates, activeCount } from '../src/core.js';
 import { DEFAULTS } from '../src/settings.js';
 let pass = 0, fail = 0; const check = (c, m) => { if (!c) { fail++; console.log('FAIL', m); } else pass++; };
 const t0 = Date.now();
+// 等待位规则：只有前 activeCrates 个可见木箱收积木
+{ const lv = { opt: { vis: 4, active: 3, cap: 3, trayCap: 5 }, blocks: [] }; const st = { crateQ: ['red', 'yellow', 'blue', 'green', 'green'].map((c, i) => ({ color: c, cid: i, items: [] })) };
+  check(matchCrate(lv, st, { color: 'green' }) === -1, '绿色块不进第 4 格等待位（应进托盘）');
+  check(matchCrate(lv, st, { color: 'blue' }) === 2, '蓝色块进第 3 格');
+  check(activeCrates(lv, st).length === 3 && visibleCrates(lv, st).length === 4, '收集中 3 个 / 可见 4 个');
+  st.crateQ.splice(0, 1); check(matchCrate(lv, st, { color: 'green' }) === 2, '前面木箱装满离开后，等待位补进收集行即可收积木'); }
+
 const want = [[12, 4], [18, 6], [30, 10], [24, 8], [39, 13]];
 for (let n = 1; n <= 5; n++) {
   const lv = makeLevel(DEFAULTS, n), st = newState(lv);
@@ -17,6 +24,10 @@ for (let n = 1; n <= 5; n++) {
   // 沿解法逐块执行：全部安全、最终清空、木箱全满、托盘空、每一步事件合法
   let s = cloneState(st), safe = true, win = false, trayMax = 0;
   for (const id of plan) { const o = pullOutcome(lv, s, id, DEFAULTS.stabMargin); if (!o.ok) safe = false; const ev = applyPull(lv, s, id); if (ev.some(e => e.t === 'win')) win = true; trayMax = Math.max(trayMax, s.tray.filter(x => x >= 0).length); }
+  // 等待位（第 4 个可见木箱）永远不收积木：沿解法逐步检查
+  { let s2 = cloneState(st), bad = 0; for (const id of plan) { applyPull(lv, s2, id); s2.crateQ.slice(activeCount(lv), lv.opt.vis).forEach(c => { if (c.items.length) bad++; }); }
+    check(activeCount(lv) === 3 && lv.opt.vis === 4 && bad === 0, `L${n} 等待位木箱从未收到积木（收集中 ${activeCount(lv)} / 可见 ${lv.opt.vis}）`);
+    const s3 = newState(lv), w = s3.crateQ[3]; check(!w || matchCrate(lv, s3, { color: w.color }) !== 3, `L${n} matchCrate 不会返回等待位`); }
   check(safe && win && s.tray.every(x => x < 0) && s.crateQ.length === 0, `L${n} 沿解法全程安全并胜利（托盘峰值 ${trayMax}/${DEFAULTS.trayCap}）`);
   // 承重块：被标记的块拔出后 pullOutcome.ok=false；非承重块 ok=true
   const crit = criticalSet(lv.blocks, st.present, DEFAULTS.stabMargin);

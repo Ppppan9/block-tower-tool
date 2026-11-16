@@ -20,7 +20,7 @@ const colHex = c => (PALETTE[c] || { main: '#999' }).main;
 export function newDef(name = '我的关卡') {
   const cols = ['red', 'yellow', 'blue'], layers = [];
   for (let i = 0; i < 4; i++) layers.push({ colors: [cols[(i * 2) % 3], cols[(i * 2 + 1) % 3], cols[(i * 2 + 2) % 3]], orient: 'auto', twist: 0 });
-  const d = { v: 1, name, layers, crates: [], cap: 3, visible: 4, trayCap: 5, yaw: null, scale: 1, hgtScale: 1 };
+  const d = { v: 1, name, layers, crates: [], cap: 3, visible: 4, active: 3, trayCap: 5, yaw: null, scale: 1, hgtScale: 1 };
   d.crates = balanceCrates(d); return d;
 }
 // 由积木颜色数量生成木箱队列（容量 cap；不足一箱的颜色向上补 → 提示不匹配）
@@ -76,7 +76,7 @@ const CSS = `
 .bt-val{background:#fff;border:3px dashed #d9b26a;border-radius:12px;padding:6px 10px;font-size:13px}
 .bt-val div{margin:2px 0}
 .bt-crate{position:relative;width:78px;border-radius:12px;border:3px solid #4a2a10;padding:5px 4px 6px;text-align:center;cursor:grab;color:#fff;font-weight:800;text-shadow:0 1px 0 rgba(0,0,0,.4);box-shadow:inset 0 -9px 0 rgba(0,0,0,.2),0 3px 0 #4a2a10;user-select:none}
-.bt-crate.drag{opacity:.4}.bt-crate.over{outline:4px dashed #ffd02a}
+.bt-crate.wait{transform:scale(.86);opacity:.8;outline:3px dashed #fff;outline-offset:-7px}.bt-crate.drag{opacity:.4}.bt-crate.over{outline:4px dashed #ffd02a}
 .bt-crate .pips{display:flex;gap:3px;justify-content:center;margin:3px 0 2px}.bt-crate .pip{width:12px;height:16px;border-radius:4px;background:rgba(0,0,0,.35);border:2px solid rgba(0,0,0,.4)}
 .bt-crate .x{position:absolute;top:-9px;right:-9px;width:22px;height:22px;border-radius:50%;background:#d63a3a;color:#fff;border:2px solid #4a2a10;font-size:13px;line-height:15px;cursor:pointer;padding:0}
 .bt-crate .mv{display:flex;justify-content:space-between;margin-top:3px}.bt-crate .mv button{font-size:11px;padding:0 6px;border-radius:6px;border:2px solid #4a2a10;background:#fff3d6;color:#4a2a10;cursor:pointer;font-weight:800}
@@ -215,9 +215,10 @@ export function createBuilder(app) {
     return box;
   }
   function crateCard(c, i, shown) {
-    const card = h('div', { class: 'bt-crate', draggable: true, style: `background:${colHex(c)}`, 'data-i': i, title: '拖动排序；点颜色块切换颜色' },
+    const waitSlot = shown && i >= Math.min(def.active || 3, def.visible);
+    const card = h('div', { class: 'bt-crate' + (waitSlot ? ' wait' : ''), draggable: true, style: `background:${colHex(c)}`, 'data-i': i, title: '拖动排序；点颜色块切换颜色' },
       h('button', { class: 'x', title: '删除', onclick: e => { e.stopPropagation(); mutate(d => { d.crates.splice(i, 1); }); } }, '×'),
-      h('div', null, shown ? `第${i + 1}格` : `#${i + 1}`), h('div', { class: 'pips' }, Array.from({ length: def.cap }, () => h('span', { class: 'pip' }))),
+      h('div', null, shown ? (i < Math.min(def.active || 3, def.visible) ? `第${i + 1}格·收集` : `第${i + 1}格·等待`) : `#${i + 1}`), h('div', { class: 'pips' }, Array.from({ length: def.cap }, () => h('span', { class: 'pip' }))),
       h('div', null, colName(c)),
       h('div', { class: 'mv' }, h('button', { onclick: e => { e.stopPropagation(); if (i > 0) mutate(d => { [d.crates[i], d.crates[i - 1]] = [d.crates[i - 1], d.crates[i]]; }); } }, '◀'), h('button', { onclick: e => { e.stopPropagation(); if (i < def.crates.length - 1) mutate(d => { [d.crates[i], d.crates[i + 1]] = [d.crates[i + 1], d.crates[i]]; }); } }, '▶')),
       h('select', { class: 'bt-sel', style: 'width:100%;margin-top:3px', onchange: e => mutate(d => { d.crates[i] = e.target.value; }) }, COLOR_KEYS.map(k => h('option', { value: k, selected: k === c }, colName(k)))));
@@ -231,7 +232,7 @@ export function createBuilder(app) {
   function renderCrates() {
     const pane = paneEl; pane.replaceChildren();
     const vis = Math.min(def.visible, def.crates.length), shown = def.crates.slice(0, vis), queue = def.crates.slice(vis);
-    pane.append(h('div', { class: 'bt-sub' }, `📺 当前显示的木箱（同屏 ${def.visible} 个）`), h('div', { class: 'bt-shelf show', id: 'bt-shown' }, shown.map((c, i) => crateCard(c, i, true)), !shown.length ? h('span', null, '（没有木箱）') : null,
+    pane.append(h('div', { class: 'bt-sub' }, `📺 当前显示的木箱（同屏 ${def.visible} 个：前 ${Math.min(def.active || 3, def.visible)} 个收集积木，其余为等待位，不收积木）`), h('div', { class: 'bt-shelf show', id: 'bt-shown' }, shown.map((c, i) => crateCard(c, i, true)), !shown.length ? h('span', null, '（没有木箱）') : null,
       queue.length ? h('div', { class: 'bt-plus', title: '队列里还有 ' + queue.length + ' 个' }, '+' + queue.length) : null));
     pane.append(h('div', { class: 'bt-sub' }, `⏭ 接下来出现的木箱（共 ${queue.length} 个，按从左到右依次补位，可拖动排序）`), h('div', { class: 'bt-shelf', id: 'bt-queue' }, queue.map((c, i) => crateCard(c, i + vis, false)), !queue.length ? h('span', null, '（队列是空的）') : null));
     pane.append(h('div', { class: 'bt-sub' }, '➕ 添加木箱'), h('div', { class: 'bt-row' }, palette(null, c => mutate(d => { d.crates.push(c); })), h('span', null, '点颜色加到队尾')));
@@ -245,7 +246,7 @@ export function createBuilder(app) {
   }
   function renderParams() {
     const pane = paneEl; pane.replaceChildren();
-    pane.append(h('div', { class: 'bt-sub' }, '📦 木箱 / 托盘'), numRow('每个木箱容量', 'cap', 1, 6, 1), numRow('同屏显示木箱数', 'visible', 1, 6, 1), numRow('托盘格数', 'trayCap', 1, 9, 1));
+    pane.append(h('div', { class: 'bt-sub' }, '📦 木箱 / 托盘'), numRow('每个木箱容量', 'cap', 1, 6, 1), numRow('同屏显示木箱数', 'visible', 1, 6, 1), numRow('收集中木箱数', 'active', 1, 6, 1), numRow('托盘格数', 'trayCap', 1, 9, 1));
     pane.append(h('div', { class: 'bt-sub' }, '🎥 镜头 / 积木'), numRow('积木整体缩放', 'scale', 0.5, 1.4, 0.05), numRow('积木厚度系数', 'hgtScale', 0.6, 1.6, 0.05));
     const hasYaw = def.yaw != null;
     pane.append(h('div', { class: 'bt-row' }, h('span', { style: 'flex:0 0 150px;font-weight:700' }, '开局镜头角度'), h('label', null, h('input', { type: 'checkbox', id: 'bt-yawauto', checked: !hasYaw, onchange: e => mutate(d => { d.yaw = e.target.checked ? null : (+app.S.startYaw || 22); }) }), ' 默认'),
@@ -275,7 +276,7 @@ export function createBuilder(app) {
   const newId = () => 'c' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
   function normalize(o) {
     if (!o || !Array.isArray(o.layers) || !o.layers.length) throw new Error('缺少 layers');
-    const d = { v: 1, name: String(o.name || '导入的关卡').slice(0, 24), layers: o.layers.slice(0, 40).map(l => ({ colors: (l.colors || []).slice(0, 4).map(c => PALETTE[c] ? c : 'red'), orient: ['x', 'z'].includes(l.orient) ? l.orient : 'auto', twist: clamp(+l.twist || 0, -45, 45) })), crates: (Array.isArray(o.crates) ? o.crates : []).slice(0, 80).map(c => PALETTE[c] ? c : 'red'), cap: clamp(Math.round(o.cap) || 3, 1, 6), visible: clamp(Math.round(o.visible) || 4, 1, 6), trayCap: clamp(Math.round(o.trayCap) || 5, 1, 9), yaw: o.yaw == null || !isFinite(+o.yaw) ? null : clamp(+o.yaw, -180, 180), scale: clamp(+o.scale || 1, 0.5, 1.4), hgtScale: clamp(+o.hgtScale || 1, 0.6, 1.6) };
+    const d = { v: 1, name: String(o.name || '导入的关卡').slice(0, 24), layers: o.layers.slice(0, 40).map(l => ({ colors: (l.colors || []).slice(0, 4).map(c => PALETTE[c] ? c : 'red'), orient: ['x', 'z'].includes(l.orient) ? l.orient : 'auto', twist: clamp(+l.twist || 0, -45, 45) })), crates: (Array.isArray(o.crates) ? o.crates : []).slice(0, 80).map(c => PALETTE[c] ? c : 'red'), cap: clamp(Math.round(o.cap) || 3, 1, 6), visible: clamp(Math.round(o.visible) || 4, 1, 6), active: clamp(Math.round(o.active) || 3, 1, 6), trayCap: clamp(Math.round(o.trayCap) || 5, 1, 9), yaw: o.yaw == null || !isFinite(+o.yaw) ? null : clamp(+o.yaw, -180, 180), scale: clamp(+o.scale || 1, 0.5, 1.4), hgtScale: clamp(+o.hgtScale || 1, 0.6, 1.6) };
     if (d.layers.some(l => !l.colors.length)) throw new Error('有空层');
     return d;
   }
@@ -325,5 +326,5 @@ export function templateFromLevel(S, n) {
   for (const b of lv.blocks) { if (!by.has(b.layer)) by.set(b.layer, []); by.get(b.layer).push(b); }
   const layers = [...by.keys()].sort((a, b) => a - b).map(L => { const bs = by.get(L); const base = L % 2 === 1 ? Math.PI / 2 : 0; let tw = (bs[0].yaw - base) * 180 / Math.PI; tw = Math.round(tw * 10) / 10; return { colors: bs.map(b => b.color), orient: 'auto', twist: Math.abs(tw) < 0.05 ? 0 : tw }; });
   const ks = String(S.blockScales || '').split(',').map(parseFloat), hs = String(S.hgtScales || '').split(',').map(parseFloat), ys = String(S.startYaws || '').split(',').map(parseFloat);
-  return { v: 1, name: '第' + n + '关副本', layers, crates: lv.crates.map(c => c.color), cap: lv.opt.cap, visible: lv.opt.vis, trayCap: lv.opt.trayCap, yaw: isFinite(ys[n - 1]) ? ys[n - 1] : null, scale: isFinite(ks[n - 1]) && ks[n - 1] > 0 ? ks[n - 1] : (S.blockScaleDefault || 1), hgtScale: isFinite(hs[n - 1]) && hs[n - 1] > 0 ? hs[n - 1] : 1 };
+  return { v: 1, name: '第' + n + '关副本', layers, crates: lv.crates.map(c => c.color), cap: lv.opt.cap, visible: lv.opt.vis, active: lv.opt.active || 3, trayCap: lv.opt.trayCap, yaw: isFinite(ys[n - 1]) ? ys[n - 1] : null, scale: isFinite(ks[n - 1]) && ks[n - 1] > 0 ? ks[n - 1] : (S.blockScaleDefault || 1), hgtScale: isFinite(hs[n - 1]) && hs[n - 1] > 0 ? hs[n - 1] : 1 };
 }

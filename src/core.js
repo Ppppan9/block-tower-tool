@@ -126,13 +126,13 @@ export function validateCustom(S, def) {
 }
 export function solveCustom(S, def, nodes = 60000) {
   const blocks = customBlocks(S, def), cap = def.cap || 3;
-  const lv = { def: { custom: true }, seed: 1, attempt: 0, blocks, crates: def.crates.map(c => ({ color: c, sym: (PALETTE[c] || PALETTE.red).sym })), opt: { cap, trayCap: def.trayCap || 5, vis: def.visible || 4 } };
+  const lv = { def: { custom: true }, seed: 1, attempt: 0, blocks, crates: def.crates.map(c => ({ color: c, sym: (PALETTE[c] || PALETTE.red).sym })), opt: { cap, trayCap: def.trayCap || 5, vis: def.visible || 4, active: Math.min(def.visible || 4, def.active || 3) } };
   const t0 = Date.now(); const sol = solve(lv, nodes); return { ok: !!sol, steps: sol ? sol.length : 0, ms: Date.now() - t0 };
 }
 function buildCustomLevel(def, opt) {
-  const cap = def.cap || opt.crateCap || 3, trayCap = def.trayCap || opt.trayCap || 5, vis = def.visible || opt.visible || 4;
+  const cap = def.cap || opt.crateCap || 3, trayCap = def.trayCap || opt.trayCap || 5, vis = def.visible || opt.visible || 4, active = Math.min(vis, def.active || opt.active || 3);
   const blocks = customShapes(def).map((s, i) => ({ ...s, id: i, sym: (PALETTE[s.color] || PALETTE.red).sym }));
-  const lv = { def, seed: 1, attempt: 0, blocks, crates: def.crates.map(c => ({ color: c, sym: (PALETTE[c] || PALETTE.red).sym })), opt: { cap, trayCap, vis } };
+  const lv = { def, seed: 1, attempt: 0, blocks, crates: def.crates.map(c => ({ color: c, sym: (PALETTE[c] || PALETTE.red).sym })), opt: { cap, trayCap, vis, active } };
   lv.unstable = blocks.length ? !stability(blocks, blocks.map(() => true)).ok : true;
   lv.solution = lv.unstable ? null : solve(lv, 60000);
   return lv;
@@ -199,7 +199,7 @@ export function criticalSet(blocks, present, margin) {
 // 从关卡定义 + 种子生成带颜色的积木列表（保证有解：求解器验证，不行就换排布）
 export function buildLevel(def, seed = 1, opt = {}) {
   if (def.custom) return buildCustomLevel(def, opt);
-  const cap = opt.crateCap || 3, trayCap = opt.trayCap || 5, vis = opt.visible || 4;
+  const cap = opt.crateCap || 3, trayCap = opt.trayCap || 5, vis = opt.visible || 4, active = Math.min(vis, opt.active || 3);
   let shapes = layoutShapes(def);
   // 木箱队列
   let crates = def.crates.slice();
@@ -213,7 +213,7 @@ export function buildLevel(def, seed = 1, opt = {}) {
     const lay = def.layout && def.layout.map((arr, L) => ((L % 2 ? def.flipOdd : def.flipEven) ? arr.slice().reverse() : arr)), fixed = attempt === 0 && lay && lay.flat().length === shapes.length ? lay.flat() : null;
     if (fixed) { cols.length = 0; cols.push(...fixed); } else for (let i = cols.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [cols[i], cols[j]] = [cols[j], cols[i]]; }
     const blocks = shapes.map((s, i) => ({ ...s, id: i, color: cols[i], sym: PALETTE[cols[i]].sym }));
-    const lv = { def, seed, attempt, blocks, crates: crates.map(c => ({ color: c, sym: PALETTE[c].sym })), opt: { cap, trayCap, vis } };
+    const lv = { def, seed, attempt, blocks, crates: crates.map(c => ({ color: c, sym: PALETTE[c].sym })), opt: { cap, trayCap, vis, active } };
     if (!blocks.every(b => b.layer === 0 || true)) continue;
     if (!stability(blocks, blocks.map(() => true)).ok) continue; // 初始塔必须稳
     const sol = solve(lv, opt.solveNodes || 40000);
@@ -228,9 +228,12 @@ export function newState(lv) {
 }
 export const cloneState = s => ({ present: s.present.slice(), crateQ: s.crateQ.map(c => ({ ...c, items: c.items ? c.items.slice() : [] })), tray: s.tray.slice(), cleared: s.cleared, moves: s.moves, over: s.over });
 export function visibleCrates(lv, st) { return st.crateQ.slice(0, lv.opt.vis); }
-// 找可接收该块的可见木箱（队列最靠前、颜色相同、未满）
+// 收集中的木箱 = 可见木箱的前 active 个；之后的可见木箱（如第 4 格）只是“等待/预览位”，不接收积木
+export const activeCount = lv => Math.max(1, Math.min(lv.opt.vis, lv.opt.active || lv.opt.vis));
+export function activeCrates(lv, st) { return st.crateQ.slice(0, activeCount(lv)); }
+// 找可接收该块的收集中木箱（队列最靠前、颜色相同、未满）；等待位永远返回不到
 export function matchCrate(lv, st, b) {
-  const v = visibleCrates(lv, st);
+  const v = activeCrates(lv, st);
   for (let i = 0; i < v.length; i++) if (v[i].color === b.color && (v[i].items ? v[i].items.length : v[i].n) < lv.opt.cap) return i;
   return -1;
 }
@@ -254,7 +257,7 @@ export function applyPull(lv, st, id) {
   const completeCrates = () => {
     let any = false;
     for (;;) {
-      const v = visibleCrates(lv, st); const i = v.findIndex(c => c.items.length >= cap); if (i < 0) break;
+      const v = activeCrates(lv, st); const i = v.findIndex(c => c.items.length >= cap); if (i < 0) break;
       ev.push({ t: 'full', ci: i, cid: v[i].cid, color: v[i].color, items: v[i].items.slice() }); st.crateQ.splice(i, 1); ev.push({ t: 'shift', from: i }); any = true;
       // 托盘里的块飞入新的可见木箱
       for (let s = 0; s < st.tray.length; s++) { const tb = st.tray[s]; if (tb >= 0 && matchCrate(lv, st, lv.blocks[tb]) >= 0) { st.tray[s] = -1; place(tb, s); } }
@@ -313,7 +316,7 @@ export function solve(lv, maxNodes = 40000, from = null, order = 'safe', seed = 
 
 // ---------- 设置 → 关卡 ----------
 export function levelDef(S, n) {
-  if (n >= CUSTOM_DRAFT_N) { const d = customDefFor(n); if (d) return { id: n, custom: true, name: d.name, layers: d.layers, crates: d.crates, cap: d.cap, visible: d.visible, trayCap: d.trayCap, yaw: d.yaw, scale: d.scale, hgtScale: d.hgtScale, per: 3, style: 'jenga', hint: '' }; }
+  if (n >= CUSTOM_DRAFT_N) { const d = customDefFor(n); if (d) return { id: n, custom: true, name: d.name, layers: d.layers, crates: d.crates, cap: d.cap, visible: d.visible, active: d.active, trayCap: d.trayCap, yaw: d.yaw, scale: d.scale, hgtScale: d.hgtScale, per: 3, style: 'jenga', hint: '' }; }
   if (!S.customLevel) { const d = LEVELS[(n - 1) % LEVELS.length]; return { ...d, id: n }; }
   const cols = String(S.customColors || 'red,yellow,blue').split(',').map(x => x.trim()).filter(x => PALETTE[x]); if (!cols.length) cols.push('red', 'blue');
   const cap = S.crateCap || 3, per = S.customPer || 3, layers = S.customLayers || 8;
@@ -323,8 +326,8 @@ export function levelDef(S, n) {
 }
 export function makeLevel(S, n) {
   const def = levelDef(S, n);
-  if (def.custom) { applyDimFor(S, def); return buildLevel(def, 1, { crateCap: S.crateCap, trayCap: S.trayCap, visible: S.visibleCrates }); }
+  if (def.custom) { applyDimFor(S, def); return buildLevel(def, 1, { crateCap: S.crateCap, trayCap: S.trayCap, visible: S.visibleCrates, active: S.activeCrates }); }
   const ks = String(S.blockScales || '').split(',').map(x => parseFloat(x)), k = (isFinite(ks[n - 1]) && ks[n - 1] > 0 ? ks[n - 1] : (S.blockScaleDefault || 1));
   DIM.len = S.blockLen * k; DIM.wid = S.blockWid * k; const hs = String(S.hgtScales || '').split(',').map(x => parseFloat(x)), hk = isFinite(hs[n - 1]) && hs[n - 1] > 0 ? hs[n - 1] : 1; DIM.hgt = S.blockHgt * k * hk; DIM.stumpR = S.stumpR; DIM.pitch = DIM.wid + 0.02 * k;
-  return buildLevel(def, (S.seed || 1) + n * 17, { crateCap: S.crateCap, trayCap: S.trayCap, visible: S.visibleCrates });
+  return buildLevel(def, (S.seed || 1) + n * 17, { crateCap: S.crateCap, trayCap: S.trayCap, visible: S.visibleCrates, active: S.activeCrates });
 }

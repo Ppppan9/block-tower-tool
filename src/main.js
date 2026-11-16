@@ -7,7 +7,7 @@ import { createAERecorder } from './ae/recorder.js';
 import { export3D } from './export3d/export3d.js';
 import { exportH5PlayableFromPage, applyPlayableMode, isPlayableNoHand, applyH5DevicePresetToSettings, markH5DeviceCustomIfSizeEdited, bindEditorDevicePreview } from './h5/index.js';
 import { DEFAULT_HAND as __H5_DEFAULT_HAND } from './default_hand.js';
-import { makeLevel, newState, cloneState, applyPull, pullOutcome, criticalSet, solve, matchCrate, PALETTE, LEVELS, CUSTOM, CUSTOM_DRAFT_N, customDefFor } from './core.js';
+import { makeLevel, newState, cloneState, applyPull, pullOutcome, criticalSet, solve, matchCrate, activeCrates, activeCount, PALETTE, LEVELS, CUSTOM, CUSTOM_DRAFT_N, customDefFor } from './core.js';
 import { createBuilder, loadCustomList } from './builder.js';
 import * as ART from './art.js';
 import { createScene } from './scene3d.js';
@@ -95,7 +95,7 @@ function newGame(keepSeed = true, n = null) {
 function buildGame(num) {
   dropTweens(); const gen = (G ? G.gen : 0) + 1;
   { const cd = num >= CUSTOM_DRAFT_N ? customDefFor(num) : null;
-    if (cd) { if (!CUSTOM_SAVE) CUSTOM_SAVE = { crateCap: S.crateCap, visibleCrates: S.visibleCrates, trayCap: S.trayCap }; S.crateCap = cd.cap || 3; S.visibleCrates = cd.visible || 4; S.trayCap = cd.trayCap || 5; }
+    if (cd) { if (!CUSTOM_SAVE) CUSTOM_SAVE = { crateCap: S.crateCap, visibleCrates: S.visibleCrates, activeCrates: S.activeCrates, trayCap: S.trayCap }; S.crateCap = cd.cap || 3; S.visibleCrates = cd.visible || 4; S.activeCrates = cd.active || 3; S.trayCap = cd.trayCap || 5; }
     else if (CUSTOM_SAVE) { Object.assign(S, CUSTOM_SAVE); CUSTOM_SAVE = null; } }
   ART.setPalette(S);
   LV = makeLevel(S, num); ST = newState(LV);
@@ -931,7 +931,7 @@ window.__app = {
   get S() { return S; }, get G() { return G; }, get LV() { return LV; }, get ST() { return ST; }, get HAND() { return HAND; }, get AUTO() { return AUTO; }, get REC() { return REC; }, SC, THREE,
   setSetting(k, v) { const it = SCHEMA.flatMap(g => g.items).find(i => i.k === k); if (it) { onSetting(it, v); syncPanel(); } else S[k] = v; },
   newGame, autoSolve, stopAuto, startRecording, stopRecording, tapBlock, clickPointFor, importJSON, audioState, sfx, resumeAudio, handleClick, doUndo, nextLevel, restartLevel, handState, endCardState, endCardHidesHand, endButtonRect, panelRect, boosterLayout, critNow, toast,
-  core: { LEVELS, applyPull, pullOutcome, criticalSet, solve, newState, matchCrate },
+  core: { LEVELS, applyPull, pullOutcome, criticalSet, solve, newState, matchCrate, activeCrates, activeCount },
   get tweenCount() { return tweens.length; }, get pulling() { return G ? [...G.pulling] : []; },
   idle: () => !!G && !G.evBusy && !G.flights.length && !G.pulling.size && !G.rewinding && !tweens.length,
 };

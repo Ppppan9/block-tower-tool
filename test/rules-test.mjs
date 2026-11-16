@@ -114,6 +114,24 @@ for (const n of [3, 5]) {
     return { worst, vis, present: A.ST.present.filter(x => x).length, over: A.G.over, panel: A.G.panel }; }, { present: pre.present });
   check(u.worst < 1e-3 && u.vis === u.present && !u.over && !u.panel && u.present === pre.present.filter(x => x).length, `L${n} 撤销：所有方块位置/姿态精确还原（最大偏差 ${u.worst.toExponential(1)}），回到倒塌前 ${JSON.stringify(u)}`);
 }
+
+// 等待位：第 4 个可见木箱只是预览，永远不收积木（逻辑 + 画面），托盘里同色块要等它补进收集行才飞入
+{ let shot = false;
+  for (const n of [1, 2, 3, 5]) {
+    await newGame(n); const pl = await plan(); let bad = 0, viewBad = 0, trayWait = 0, steps = 0;
+    for (const id of pl) {
+      if (await page.evaluate(() => !!__app.ST.over)) break;
+      await tap(id); await idle(); steps++;
+      const q = await page.evaluate(() => { const A = __app, w = A.ST.crateQ[3], vw = A.G.view.vq[3] != null ? A.G.view.crates.get(A.G.view.vq[3]) : null;
+        return { act: A.core.activeCount(A.LV), w: w ? w.items.length : 0, vw: vw ? vw.items.filter(x => x != null).length : 0, trayWait: w ? A.ST.tray.filter(t => t >= 0 && A.LV.blocks[t].color === w.color).length : 0,
+          inActive: w ? A.ST.crateQ.slice(0, 3).some(c => c.color === w.color && c.items.length < A.LV.opt.cap) : false }; });
+      if (q.w) bad++; if (q.vw) viewBad++;
+      if (q.trayWait && !q.inActive) { trayWait++; if (!shot && process.env.SHOT) { shot = true; await page.locator('#stage').screenshot({ path: process.env.SHOT }); } }
+    }
+    check(bad === 0 && viewBad === 0, `L${n} 等待位木箱全程 0 积木（逻辑 ${bad} / 画面 ${viewBad}，${steps} 步，托盘里等待同色块 ${trayWait} 步）`);
+    check(await page.evaluate(() => __app.ST.over === 'win' || __app.G.cleared), `L${n} 按新规则仍可通关`);
+  }
+}
 check(errors.length === 0, 'no console errors ' + errors.slice(0, 3).join('|'));
 console.log(`rules: ${pass} passed, ${fail} failed`);
 await browser.close(); process.exit(fail ? 1 : 0);

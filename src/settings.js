@@ -7,7 +7,7 @@ export const DEFAULTS = {
   theme: 'woodtown', themeStore: {}, settingsVersion: SETTINGS_VERSION,
   // 关卡 / 玩法
   startLevel: 1, seed: 20261115, customLevel: false, customLayers: 8, customPer: 3, customStyle: 'jenga', customColors: 'red,yellow,blue', customCrates: '',
-  crateCap: 3, trayCap: 5, visibleCrates: 4, stabMargin: 0.035, warnMode: 'pull', showHints: true, tutorialHighlight: true,
+  crateCap: 3, trayCap: 5, visibleCrates: 4, activeCrates: 3, stabMargin: 0.035, warnMode: 'pull', showHints: true, tutorialHighlight: true,
   undoUnlock: 3, undoCount: 1, failFreeUndo: true, winPanel: true, autoNext: true, endAfterLevels: 5, failOnTrayFull: true, trayWarnLeft: 1,
   comboWords: 'Great!,Awesome!,Amazing!', comboEvery: 2, showPlusOne: true,
   // 积木外观
@@ -75,6 +75,7 @@ export const SCHEMA = [
     R('crateCap', '每个木箱容量', 2, 4, 1, { kind: 'regen' }),
     R('trayCap', '托盘格数(视频 5)', 3, 8, 1, { kind: 'regen' }),
     R('visibleCrates', '可见木箱数(视频 4)', 2, 5, 1, { kind: 'regen' }),
+    R('activeCrates', '收集中木箱数(视频 3；其余可见木箱为等待位，不收积木)', 1, 5, 1, { kind: 'regen' }),
     R('stabMargin', '稳定性余量（越大越容易倒）', 0, 0.2, 0.005, { kind: 'regen' }),
     S('warnMode', '拔承重块时', [['pull', '提示后照常拔出（视频）'], ['confirm', '提示并要求再点一次确认'], ['block', '提示且不让拔'], ['off', '不提示']]),
     B('showHints', '显示教学提示气泡（各关提示语）'),
