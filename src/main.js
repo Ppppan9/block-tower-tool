@@ -770,11 +770,33 @@ function onSetting(item, v) {
   if (item.k === 'manualHand' || item.k === 'hideCursor') updateCursor();
 }
 function fmt(v, step) { return step && step < 1 ? (+v).toFixed(String(step).split('.')[1].length) : v; }
+const PANEL_OPEN_KEY = 'blockTowerTool.panelOpen.v1';
+const PANEL_ICONS = [['主题', '🎨'], ['关卡', '🧩'], ['积木外观', '🧱'], ['树桩', '🌳'], ['镜头', '🎥'], ['界面', '🪧'], ['动画', '✨'], ['物理', '💥'], ['粒子', '🎉'], ['音效', '🔊'], ['手指', '👆'], ['录制', '⏺'], ['导出 AE', '🎞'], ['导出 3D', '🧊'], ['导出 H5', '📱'], ['结束页', '🏁']];
+const PANEL_CATS = [['主题', '🎮 玩法 · 关卡'], ['积木外观', '🖼 画面 · 镜头 · 光照'], ['动画', '🎵 动效 · 音效'], ['手指', '🎬 演示 · 录制 · 导出']];
+function filterPanel(q) {
+  q = String(q || '').trim().toLowerCase(); let cur = null, catVis = false;
+  const flush = () => { if (cur) cur.classList.toggle('hidden-by-filter', !!q && !catVis); };
+  for (const el of panelBody.children) {
+    if (el.classList.contains('pcat')) { flush(); cur = el; catVis = false; continue; }
+    if (el.tagName !== 'DETAILS') continue;
+    const gname = (el.dataset.group || '').toLowerCase(), gHit = !q || gname.includes(q); let any = false;
+    for (const r of el.querySelectorAll('.row')) { const hit = gHit || r.textContent.toLowerCase().includes(q); r.classList.toggle('hidden-by-filter', !hit); any = any || hit; }
+    el.classList.toggle('hidden-by-filter', !any);
+    if (q && any && !el.open) { el.dataset.autoOpen = '1'; el.open = true; } else if (!q && el.dataset.autoOpen) { delete el.dataset.autoOpen; el.open = false; }
+    catVis = catVis || any;
+  }
+  flush();
+}
 function buildPanel() {
   panelBody.innerHTML = '';
+  let openState = {}; try { openState = JSON.parse(localStorage.getItem(PANEL_OPEN_KEY) || '{}') || {}; } catch (e) { }
   for (const grp of SCHEMA) {
-    const det = document.createElement('details'); if (grp.open) det.open = true;
-    const sum = document.createElement('summary'); sum.textContent = grp.group; det.appendChild(sum);
+    const cat = PANEL_CATS.find(c => grp.group.startsWith(c[0]));
+    if (cat) { const h = document.createElement('div'); h.className = 'pcat'; h.textContent = cat[1]; panelBody.appendChild(h); }
+    const det = document.createElement('details'); det.open = grp.group in openState ? !!openState[grp.group] : !!grp.open; det.dataset.group = grp.group;
+    det.addEventListener('toggle', () => { try { const o = JSON.parse(localStorage.getItem(PANEL_OPEN_KEY) || '{}') || {}; o[grp.group] = det.open; localStorage.setItem(PANEL_OPEN_KEY, JSON.stringify(o)); } catch (e) { } });
+    const sum = document.createElement('summary'); const ic = (PANEL_ICONS.find(x => grp.group.startsWith(x[0])) || [0, '⚙'])[1];
+    sum.innerHTML = `<span class="gi">${ic}</span><span class="gn"></span><span class="gc">${grp.items.length}</span>`; sum.querySelector('.gn').textContent = grp.group; det.appendChild(sum);
     for (const it of grp.items) {
       const row = document.createElement('div'); row.className = 'row';
       const lab = document.createElement('label'); lab.textContent = it.label; row.appendChild(lab);
@@ -924,6 +946,10 @@ const BUILDER = createBuilder({
   toast,
 });
 $('#btnBuilder').onclick = () => BUILDER.open();
+{ const ps = $('#panelSearch'); if (ps) ps.oninput = () => filterPanel(ps.value);
+  const setAll = on => panelBody.querySelectorAll('details').forEach(d => { if (!d.classList.contains('hidden-by-filter')) d.open = on; });
+  if ($('#btnExpandAll')) $('#btnExpandAll').onclick = () => setAll(true);
+  if ($('#btnCollapseAll')) $('#btnCollapseAll').onclick = () => setAll(false); }
 $('#levelSel').onchange = e => { stopAuto(true); newGame(true, +e.target.value); };
 window.__app = {
   BUILDER, refreshLevelSelect,
