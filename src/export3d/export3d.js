@@ -3,6 +3,7 @@
 // 坐标：glTF Y 轴向上，1 单位 = 1 个积木格（宽 0.98 / 长 3 / 高 0.62）。
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
+import { ueOptimizeExport } from './ue-optimize.js';
 import { makeZip } from '../ae/zip.js';
 import { renderSfxOffline, encodeWav } from '../audio.js';
 import PY_TEXT from './blender_import.py';
@@ -65,12 +66,14 @@ export async function export3D({ S, rec, api }) {
     cam.position.set(...allCam[0][1].p); cam.quaternion.set(...allCam[0][1].q);
   }
   const clip = new THREE.AnimationClip('BlockTowerPlay', D, tracks);
-  const glb = await new GLTFExporter().parseAsync(root, { binary: true, animations: [clip], onlyVisible: false, trs: true });
+  const glb0 = await new GLTFExporter().parseAsync(root, { binary: true, animations: [clip], onlyVisible: false, trs: true });
+  const UEO = ueOptimizeExport(glb0, S, { fps, opacity: null }); // 引擎精简导出（控制台可关）
+  const glb = UEO.glb;
   const enc = new TextEncoder(), d = new Date(), p2 = x => String(x).padStart(2, '0');
   const stamp = `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}`;
   const out = [
     { name: 'blocktower_3d.glb', data: new Uint8Array(glb) },
-    { name: 'timeline3d.json', data: enc.encode(JSON.stringify({ tool: 'block-tower-tool', fps, duration: D, width: W, height: H, levels: rec.segs.map(s => ({ level: s.n, from: s.f0 / fps, to: (s.f1 + 1) / fps, blocks: s.blocks.length })), events: rec.events, stats })) },
+    { name: 'timeline3d.json', data: enc.encode(JSON.stringify({ tool: 'block-tower-tool', fps, duration: D, width: W, height: H, levels: rec.segs.map(s => ({ level: s.n, from: s.f0 / fps, to: (s.f1 + 1) / fps, blocks: s.blocks.length })), events: rec.events, stats, optimize: UEO.stats })) },
     { name: 'blender_import.py', data: enc.encode(PY_TEXT) },
     { name: 'README_3D.md', data: enc.encode(README_TEXT) },
   ];

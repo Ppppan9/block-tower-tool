@@ -42,7 +42,7 @@ export const DEFAULTS = {
   // 导出 AE 工程
   aeWithRec: true, aeFps: 30, aeSize: 'canvas', aeSampling: 'reduce', aeNames: 'zh', aeAudio: 'both', aeSaveAep: true, aeTowerFps: 15, aeTowerScale: 0.5, aeTowerMax: 900, aeParticles: 'layers',
   // 导出 3D
-  export3dFps: 30, export3dHand: true, export3dParticles: true,
+  export3dFps: 30, export3dLite: true, export3dHand: true, export3dParticles: true,
   // 导出 H5 试玩广告
   h5Format: 'applovin,facebook,google,mintegral,moloco,tiktok,unity,generic', h5Orientation: '1', h5Device: 'adaptive', h5DeviceW: 390, h5DeviceH: 844,
   h5CtaText: '立即下载', h5StoreUrl: 'https://play.google.com/store/apps/details?id=com.example.game', h5GameName: '积木塔', h5Icon: '', h5MaxMb: 5, h5AutoPlay: false,
@@ -183,6 +183,7 @@ export const SCHEMA = [
   { group: '导出 3D 动画（UE5 / C4D / Blender）', open: true, items: [
     { k: '_export3d', label: '用上一次 AE 记录生成 glTF 场景（逐块 3D 位姿动画）+ Blender 脚本 + 音频', type: 'button', action: 'export3d', text: '导出 3D 动画 (glTF/FBX/Blender)' },
     S('export3dFps', '3D 动画帧率', [[24, '24'], [25, '25'], [30, '30'], [60, '60']], { num: true }),
+    B('export3dLite', '引擎精简导出（合并重复模型和材质、复用短暂出现的物体、精简关键帧；导入 3D 引擎更快、不易卡死）'),
     B('export3dParticles', '包含彩带/碎屑粒子（烘焙成带贴图的小平面）'),
     B('export3dHand', '包含手指（贴图平面；结束页是否显示仍按“结束页显示手指”）'),
   ]},
