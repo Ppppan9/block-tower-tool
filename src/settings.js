@@ -21,7 +21,7 @@ export const DEFAULTS = {
   camElev: 24, camFov: 22, fitMargin: 0.045, fitTall: 4.9, levelZoom: '1,1,1,1,1', stumpWidths: '0.9,0.9,0.8,1.05,0.62', blockScales: '1.0,1.0,0.9,0.7,0.78', blockScaleDefault: 0.75, towerY: 0.72, zoomMin: 0.6, zoomMax: 2.2, rotateSpeed: 0.8, idleSpin: 0, startYaw: 22, startYaws: '160,4,130,8,80', zoomIntro: true, introZoom: 1.55, introMs: 1100,
   // 界面
   hudColor: '#4c2a10', barColor: '#5ad34a', gearColor: '#f6a02c', crateScale4: 0.78, crateSlideMs: 380, tipMs: 3200, hudShow: true, showTray: true, showBoosters: true,
-  winTitle: 'Level Complete!', winButton: 'Next Level', failTitle: 'Tower Fell!', failText: 'Take back the last pull. Free this time!', failButton: 'Play On - Free', trayTitle: 'Tray Full!', trayText: 'No room left on the tray.',
+  winTitle: 'Level Complete!', winButton: 'Next Level', failTitle: '塔倒了', failText: '可撤销上一步，本次免费。', failButton: '继续（免费）', trayTitle: '托盘已满', trayText: '托盘没有空位了。',
   // 动画
   pullSlide: 0.95, pullMs: 250, flyMs: 380, pullSfxDelay: 0.15, crateSfxLead: 125, flyArc: 0.2, flyScale: 1.0, crateFullMs: 520, popScale: 1.18, rewindMs: 850, collapseGraceMs: 2300, popupMs: 1400, shakeOnFall: 6,
   // 物理（倒塌动画）
@@ -82,7 +82,7 @@ export const SCHEMA = [
     B('tutorialHighlight', '第 1 关高亮第一个可拔积木（黄框）'),
     R('undoUnlock', '撤销按钮解锁关卡(视频 3)', 1, 6, 1),
     R('undoCount', '撤销次数', 0, 9, 1),
-    B('failFreeUndo', '倒塌后免费撤销（Play On - Free）'),
+    B('failFreeUndo', '倒塌后免费撤销'),
     B('failOnTrayFull', '托盘满且无可入箱时判失败'),
     R('trayWarnLeft', '托盘剩几格时提示 “1 left!”', 0, 3, 1),
     B('winPanel', '通关后弹结算面板（Level Complete 面板）'),

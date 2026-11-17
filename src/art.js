@@ -315,7 +315,7 @@ function starPath(g, cx, cy, ro, ri, rot = 0) { g.beginPath(); for (let k = 0; k
 function drawStar(g, cx, cy, r, rot = 0) { starPath(g, cx, cy, r, r * 0.46, rot); g.fillStyle = '#ffc928'; g.strokeStyle = '#a5610f'; g.lineWidth = Math.max(2.5, r * 0.12); g.lineJoin = 'round'; g.fill(); g.stroke(); starPath(g, cx, cy - r * 0.04, r * 0.62, r * 0.28, rot); g.fillStyle = '#ffe36b'; g.fill(); }
 function drawCoin(g, cx, cy, r) { g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fillStyle = '#f0b421'; g.fill(); g.lineWidth = Math.max(2.5, r * 0.12); g.strokeStyle = '#8a5200'; g.stroke(); g.beginPath(); g.arc(cx, cy, r * 0.68, 0, 7); g.strokeStyle = '#c47d0e'; g.lineWidth = Math.max(2, r * 0.1); g.stroke(); g.beginPath(); g.arc(cx, cy, r * 0.42, 0, 7); g.fillStyle = '#ffd04d'; g.fill(); g.stroke(); }
 function heart(g, cx, cy, r) { g.beginPath(); g.moveTo(cx, cy + r * 0.9); g.bezierCurveTo(cx - r * 1.6, cy - r * 0.1, cx - r * 0.9, cy - r * 1.3, cx, cy - r * 0.4); g.bezierCurveTo(cx + r * 0.9, cy - r * 1.3, cx + r * 1.6, cy - r * 0.1, cx, cy + r * 0.9); g.fillStyle = '#e8303c'; g.strokeStyle = '#7a1018'; g.lineWidth = 4; g.fill(); g.stroke(); g.fillStyle = 'rgba(255,255,255,.5)'; g.beginPath(); g.ellipse(cx - r * 0.5, cy - r * 0.35, r * 0.25, r * 0.15, -0.6, 0, 7); g.fill(); }
-// 弹窗时顶部的资源条（体力 / 星星 / 金币），参考视频 Tower Fell / Level Complete
+// 弹窗时顶部的资源条（体力 / 星星 / 金币），参考视频通关 / 失败弹窗
 export function currencyAsset(win, stars, coins) {
   return memo(['cur', win, stars, coins].join('|'), () => mk(640, 70, (g, w, h) => {
     const pill = (x, wd, txt, icon) => { rr(g, x, 14, wd, 42, 21); g.fillStyle = '#5b3217'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#2d170a'; g.stroke(); g.font = `800 26px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(txt, x + wd / 2 + 16, 36); icon(); };
@@ -356,14 +356,14 @@ export function winPanelAsset(S, level, stars, coins) {
 }
 export function failPanelAsset(S, kind) {
   return memo(['fail', kind, S.failTitle, S.failButton, S.trayTitle].join('|'), () => mk(PANEL.w, PANEL.hFail, (g, w, h) => {
-    const title = kind === 'tray' ? (S.trayTitle || 'Tray Full!') : (S.failTitle || 'Tower Fell!');
+    const title = kind === 'tray' ? (S.trayTitle || '托盘已满') : (S.failTitle || '塔倒了');
     panelFrame(g, w, h, '#ee5a47', '#c2402f', title, '#6a160d', 54);
     rr(g, w / 2 - 110, 136, 220, 220, 24); g.fillStyle = '#f3e3c3'; g.fill(); g.lineWidth = 4; g.strokeStyle = '#dcc79e'; g.stroke();
     g.save(); g.translate(w / 2, 246); g.lineJoin = 'round'; g.lineCap = 'round';
     const arrow = () => { g.beginPath(); g.moveTo(-62, -6); g.lineTo(-18, -52); g.lineTo(-18, -26); g.bezierCurveTo(46, -34, 80, 6, 52, 40); g.bezierCurveTo(36, 58, 4, 60, -16, 52); g.lineTo(-10, 28); g.bezierCurveTo(8, 34, 28, 30, 30, 14); g.bezierCurveTo(32, -4, 8, -8, -18, 0); g.lineTo(-18, 22); g.closePath(); };
     arrow(); g.lineWidth = 16; g.strokeStyle = '#1b3b6b'; g.stroke(); g.fillStyle = '#58b2f0'; g.fill(); g.save(); g.clip(); g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(-70, -60, 150, 26); g.restore(); g.restore();
-    g.font = `800 28px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#5a3a1e'; g.fillText(kind === 'tray' ? (S.trayText || 'No room left on the tray.') : (S.failText || 'Take back the last pull. Free this time!'), w / 2, 396);
-    bigButton(g, w, h - 170, 104, S.failButton || 'Play On - Free', 46);
+    g.font = `800 28px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#5a3a1e'; g.fillText(kind === 'tray' ? (S.trayText || '托盘没有空位了。') : (S.failText || '可撤销上一步，本次免费。'), w / 2, 396);
+    bigButton(g, w, h - 170, 104, S.failButton || '继续（免费）', 46);
   }));
 }
 // 小粒子

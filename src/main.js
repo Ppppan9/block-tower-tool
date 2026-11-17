@@ -17,11 +17,26 @@ const H5_NO_HAND = isPlayableNoHand();
 const LS_KEY = 'blockTowerTool.settings.v1';
 let S = loadSettings();
 initAudio(() => S);
+
+function stripCopiedPanelCopy(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const map = {
+    failTitle: ['Tow', 'er Fell!'].join(''),
+    failText: ['Take back the last pull. ', 'Free this time!'].join(''),
+    failButton: ['Play On', ' - Free'].join(''),
+    trayTitle: ['Tray', ' Full!'].join(''),
+    trayText: ['No room left ', 'on the tray.'].join(''),
+  };
+  for (const [k, old] of Object.entries(map)) {
+    if (obj[k] === old && k in DEFAULTS) obj[k] = DEFAULTS[k];
+  }
+  return obj;
+}
 function loadSettings() {
   try {
     const j = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
     if ('handImage' in j && (typeof j.handImage !== 'string' || (j.handImage && !/^data:image\/(png|webp|gif|jpe?g);/i.test(j.handImage)))) j.handImage = '';
-    return { ...DEFAULTS, ...themeDefaults(DEFAULTS, j.theme), ...j, settingsVersion: SETTINGS_VERSION };
+    return stripCopiedPanelCopy({ ...DEFAULTS, ...themeDefaults(DEFAULTS, j.theme), ...j, settingsVersion: SETTINGS_VERSION });
   } catch (e) { return { ...DEFAULTS, ...themeDefaults(DEFAULTS, DEFAULTS.theme) }; }
 }
 let saveTimer = 0;
@@ -875,7 +890,7 @@ $('#btnExport').onclick = () => {
   const blob = new Blob([JSON.stringify({ app: 'block-tower-tool', version: SETTINGS_VERSION, settings: S }, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'blocktower-settings.json'; a.click();
 };
-function importJSON(txt) { const j0 = JSON.parse(txt), j = j0 && j0.settings ? j0.settings : j0; if ('handImage' in j && j.handImage && !/^data:image\//.test(j.handImage)) j.handImage = ''; S = { ...DEFAULTS, ...themeDefaults(DEFAULTS, j.theme), ...j }; applyAll(); }
+function importJSON(txt) { const j0 = JSON.parse(txt), j = j0 && j0.settings ? j0.settings : j0; if ('handImage' in j && j.handImage && !/^data:image\//.test(j.handImage)) j.handImage = ''; S = stripCopiedPanelCopy({ ...DEFAULTS, ...themeDefaults(DEFAULTS, j.theme), ...j }); applyAll(); }
 $('#btnImport').onclick = () => $('#importFile').click();
 $('#importFile').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(txt => { try { importJSON(txt); toast('设置已导入'); } catch (err) { toast('导入失败：' + err.message); } }); e.target.value = ''; };
 $('#btnReset').onclick = () => { if (!confirm('确定恢复全部默认设置？')) return; S = { ...DEFAULTS, ...themeDefaults(DEFAULTS, S.theme), theme: S.theme, themeStore: {} }; applyAll(); toast('已恢复默认'); };

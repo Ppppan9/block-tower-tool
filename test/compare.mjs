@@ -74,7 +74,7 @@ await newGame(2, 600);
 const crit = await page.evaluate(() => [...__app.critNow()].filter(x => __app.ST.present[x]));
 await page.evaluate(id => __app.tapBlock(id), crit[0]); await page.waitForTimeout(1100);
 await page.waitForFunction(() => __app.G.panel === 'fail', null, { timeout: 12000 }); await page.waitForTimeout(500);
-await pair('fell-panel', 97, await ours('fellp'), 'Tower Fell panel');
+await pair('fell-panel', 97, await ours('fellp'), '倒塌面板');
 // 通关面板
 await newGame(1, 400);
 for (let g = 0; g < 14; g++) { p = await plan(); if (!p.length) break; await page.evaluate(id => __app.tapBlock(id), p[0]); await idle(); }

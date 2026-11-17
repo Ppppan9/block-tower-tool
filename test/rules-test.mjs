@@ -47,7 +47,7 @@ r = await page.evaluate(() => ({ over: __app.G.over, panel: __app.G.panel, tray:
 check(!r.over && !r.panel && r.tray === 0, `撤销回到失败前 (${JSON.stringify(r)})`);
 await page.evaluate(() => { __app.setSetting('trayCap', 5); }); await page.waitForTimeout(500);
 
-// 5. 抽承重块 → 塔倒 → Tower Fell → 撤销回放
+// 5. 抽承重块 → 塔倒 → 倒塌面板 → 撤销回放
 await newGame(2);
 const crit = await page.evaluate(() => [...__app.critNow()].filter(x => __app.ST.present[x]));
 check(crit.length > 0, `L2 存在承重块 (${crit.length})`);
